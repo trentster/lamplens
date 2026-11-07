@@ -7,6 +7,8 @@ struct BookPicker: View {
     let theme: Theme
     @State private var query = ""
     @State private var open: UInt8?
+    /// The chapter whose verses are showing, if any.
+    @State private var openChapter: Int?
 
     var body: some View {
         NavigationStack {
@@ -106,7 +108,11 @@ struct BookPicker: View {
                 let index = Int(book.firstChapter) + n - 1
                 let current = index == currentChapter
                 Button {
-                    go(chapter: index)
+                    // A chapter opens its verses instead of leaving the screen: the Mac's rule is
+                    // that choosing a verse never means scrolling past chapters to get to it.
+                    withAnimation(.smooth(duration: 0.2)) {
+                        openChapter = openChapter == index ? nil : index
+                    }
                 } label: {
                     Text("\(n)")
                         .font(.body.monospacedDigit().weight(current ? .semibold : .regular))
@@ -121,6 +127,50 @@ struct BookPicker: View {
             }
         }
         .padding(.vertical, 6)
+
+        if let openChapter {
+            verses(of: openChapter, in: book)
+        }
+    }
+
+    /// Every verse of a chapter on one screen, its verse numbers under the chapter it belongs to.
+    private func verses(of chapter: Int, in book: BookInfo) -> some View {
+        let count = store.verseCount(chapter)
+        let local = chapter - Int(book.firstChapter) + 1
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text("\(book.name) \(local), pick a verse")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Whole chapter") { go(chapter: chapter) }
+                    .font(.footnote.weight(.semibold))
+            }
+            if count < 1 {
+                Text("This chapter could not be read, so its verses are unknown here.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            } else {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 40), spacing: 6)], spacing: 6) {
+                    ForEach(1...count, id: \.self) { verse in
+                        Button {
+                            store.go(to: chapter, verse: verse, flash: true)
+                            dismiss()
+                        } label: {
+                            Text("\(verse)")
+                                .font(.footnote.monospacedDigit())
+                                .frame(maxWidth: .infinity, minHeight: 38)
+                                .foregroundStyle(Color(theme.ink))
+                                .background(
+                                    Color(theme.fill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("\(book.name) \(local):\(verse)")
+                    }
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func go(chapter: Int) {

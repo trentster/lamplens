@@ -186,6 +186,8 @@ final class ChapterLayout {
     struct Decorations {
         var theme: Theme
         var selected: Set<Int> = []
+        /// The verse Read Aloud is saying right now, tinted so the eye can follow the voice.
+        var speaking: Int?
     }
 
     /// Draws the part of the chapter inside `rect` (chapter coordinates) into the current
@@ -193,6 +195,11 @@ final class ChapterLayout {
     func draw(_ rect: CGRect, decorations d: Decorations) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let radius = typography.s(4)
+        // Read Aloud's tint goes down first: a highlight the reader chose, or a selection they just
+        // made, must stay the loudest thing on the page.
+        if let spoken = d.speaking {
+            fill(bands(of: spoken), in: rect, color: d.theme.accentSoft, radius: radius, ctx: ctx)
+        }
         for (verse, mark) in marks {
             guard let color = mark.highlight else { continue }
             fill(bands(of: verse), in: rect, color: d.theme.highlight(color), radius: radius, ctx: ctx)

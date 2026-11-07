@@ -62,6 +62,14 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
     }
 
+    /// The verse Read Aloud is saying, or `nil`. Kept to whole-chapter comparison below, so a verse
+    /// number from another chapter cannot tint the page you are looking at.
+    var speaking: Int? {
+        didSet {
+            if speaking != oldValue { redrawTiles() }
+        }
+    }
+
     private(set) var theme = Theme.light
     private var style: Typography?
     private var sourceKey: AnyHashable?
@@ -369,7 +377,7 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
             let selected = selection?.chapter == p.layout.index ? selection?.verses ?? [] : []
             p.layout.draw(
                 area.offsetBy(dx: 0, dy: -p.y),
-                decorations: .init(theme: theme, selected: selected))
+                decorations: .init(theme: theme, selected: selected, speaking: speaking))
             ctx.restoreGState()
         }
         LaunchClock.mark("First page drawn")

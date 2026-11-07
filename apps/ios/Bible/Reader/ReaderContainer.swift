@@ -9,6 +9,7 @@ struct ReaderContainer: UIViewRepresentable {
     let translation: String
     let readingLine: CGFloat
     let selection: VerseSelection?
+    let speaking: Int?
     let marksVersion: Int
     let jump: JumpRequest?
 
@@ -31,6 +32,7 @@ struct ReaderContainer: UIViewRepresentable {
         view.readingLine = readingLine
         view.configure(style: style, theme: theme, key: translation)
         view.selection = selection
+        view.speaking = speaking
         if c.marksVersion != marksVersion {
             c.marksVersion = marksVersion
             view.reloadMarks()

@@ -13,7 +13,8 @@ struct RootView: View {
             ZStack(alignment: .top) {
                 ReaderContainer(
                     store: store, theme: theme, style: typography(theme), translation: store.settings.translation,
-                    readingLine: safeTop + 60, selection: store.selection, marksVersion: store.marksVersion,
+                    readingLine: safeTop + 60, selection: store.selection, speaking: store.speakingVerse,
+                    marksVersion: store.marksVersion,
                     jump: store.jump
                 )
                 .overlay(alignment: .top) {

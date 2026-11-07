@@ -316,6 +316,17 @@ final class Store {
 
     // MARK: - Read Aloud
 
+    /// How many verses a chapter has, for the picker's grid. Read from the chapter itself, so a
+    /// translation with a different versification is followed rather than assumed.
+    func verseCount(_ chapter: Int) -> Int {
+        let content = bible.chapter(
+            translation: settings.translation, index: UInt16(chapter), options: contentOptions)
+        let numbers = content.blocks.flatMap { block in
+            [Int(block.gutterVerse)] + block.runs.map { Int($0.verse) }
+        }
+        return numbers.max() ?? 0
+    }
+
     /// The verses of a chapter as Read Aloud says them, opening announcement and all.
     func spoken(_ chapter: Int) -> [SpokenUtterance] {
         (try? bible.spokenChapter(translation: settings.translation, index: UInt16(chapter))) ?? []
@@ -334,6 +345,14 @@ final class Store {
         speaker.start(chapterIndex: position.chapter) { [weak self] index in
             (self?.spoken(index) ?? [], index)
         }
+    }
+
+    /// The verse Read Aloud is saying, when it is saying one on the chapter on screen.
+    var speakingVerse: Int? {
+        guard speaker.phase.isOn, speaker.chapter == position.chapter,
+            let verse = speaker.speaking
+        else { return nil }
+        return Int(verse)
     }
 
     /// The voice follows the page: anything that moves the reader ends the reading.
