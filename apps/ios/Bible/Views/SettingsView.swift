@@ -76,6 +76,11 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("About and licences", systemImage: "info.circle")
+                    }
                     LabeledContent("Version", value: Self.version)
                 }
             }

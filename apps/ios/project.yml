@@ -46,6 +46,8 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSRequiresIPhoneOS: true
         ITSAppUsesNonExemptEncryption: false
+        # Read Aloud keeps going with the screen off, which is what a backgrounded audio app is for.
+        UIBackgroundModes: [audio]
         UIAppFonts: [Literata.ttf, Literata-Italic.ttf, Inter.ttf]
         UILaunchScreen:
           UIColorName: LaunchBackground

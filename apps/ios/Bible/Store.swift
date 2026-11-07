@@ -344,6 +344,7 @@ final class Store {
             sheet = .listen
             return
         }
+        speaker.chapterTitle = { chapter in chapterLabel(index: UInt16(clamping: chapter)) }
         // The voice follows the page: it starts at the verse at the reading line, not the top.
         speaker.start(chapterIndex: position.chapter, fromVerse: Int(position.verse)) { [weak self] index, from in
             (self?.spoken(index, from: from) ?? [], index)

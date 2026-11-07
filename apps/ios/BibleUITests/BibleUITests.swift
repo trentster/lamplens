@@ -264,6 +264,28 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(verse("John 3:16").waitForExistence(timeout: 5))
     }
 
+    /// About carries the licences, from the same list the Mac shows. A CC BY work with no credit is
+    /// a licence breach, so this is not cosmetic.
+    func testAboutCarriesTheLicences() {
+        app.buttons["settings"].tap()
+        let about = app.buttons["About and licences"].firstMatch
+        XCTAssertTrue(about.waitForExistence(timeout: 5), "Settings offers no way into About")
+        about.tap()
+        XCTAssertTrue(
+            app.navigationBars["About"].waitForExistence(timeout: 5), "About did not open"
+        )
+        XCTAssertTrue(
+            app.staticTexts["STEPBible"].waitForExistence(timeout: 5),
+            "the STEPBible credit is missing"
+        )
+        app.swipeUp(velocity: .fast)
+        XCTAssertTrue(
+            app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Lamplit, by Mark Trent'"))
+                .firstMatch.waitForExistence(timeout: 5),
+            "the sign-off is missing"
+        )
+    }
+
     /// Read Aloud on a fresh install: the button opens the panel, and the panel offers the one-time
     /// download rather than trying to speak without a voice.
     func testListenOffersTheVoiceDownloadWhenThereIsNoVoice() {

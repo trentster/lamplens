@@ -1,6 +1,7 @@
 import AVFoundation
 import CryptoKit
 import Foundation
+import MediaPlayer
 import Observation
 
 /// Read Aloud on the phone.
@@ -83,6 +84,10 @@ final class Speaker {
     private var utterances: [SpokenUtterance] = []
     private var next = 0
     private var deadline: Date?
+    /// Names the chapter for the lock screen: "John 3".
+    var chapterTitle: ((Int) -> String)?
+    /// Whether a reading was under way when a call or another app took the audio, so it can resume.
+    private var interrupted = false
     /// Fetches a chapter's utterances and says where it is, so Keep reading can walk on.
     private var provider: ((Int, Int?) -> (verses: [SpokenUtterance], chapter: Int))?
 
@@ -148,11 +153,14 @@ final class Speaker {
         chapter = nil
         deadline = nil
         phase = .off
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
     // MARK: - The loop
 
     private func run() async {
+        guard let synth = await openVoice(), !Task.isCancelled else { return }
+        var job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
         while next < utterances.count, !Task.isCancelled {
             if let deadline, Date() >= deadline {
                 // A timed reading finishes the sentence it is in the middle of, then stops.
@@ -160,22 +168,23 @@ final class Speaker {
             }
             let utterance = utterances[next]
             next += 1
-            if let verse = utterance.verse { speaking = verse }
-            let text = utterance.text
-            let voice = voice
-            let synth = await openVoice()
-            guard let synth, !Task.isCancelled else { return }
+            if let verse = utterance.verse {
+                speaking = verse
+                updateNowPlaying()
+            }
             let pcm: [Float]
             do {
-                pcm = try await Task.detached(priority: .userInitiated) {
-                    try synth.say(text, voice)
-                }.value
+                pcm = try await (job ?? makeSamples(utterance.text, synth: synth)).value
             } catch {
                 phase = .failed("\(error)")
                 return
             }
+            // Start the next one before this one is played: synthesis takes a fifth of a second a
+            // verse, and a phone with its screen off has no other work to hide it behind.
+            job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
             guard !Task.isCancelled else { return }
             phase = .reading
+            updateNowPlaying()
             await play(pcm)
             if utterance.pauseMs > 0, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(utterance.pauseMs) * 1_000_000)
@@ -201,6 +210,11 @@ final class Speaker {
             }
         }
         stop()
+    }
+
+    private func makeSamples(_ text: String, synth: Synth) -> Task<[Float], Error> {
+        let voice = voice
+        return Task.detached(priority: .userInitiated) { try synth.say(text, voice) }
     }
 
     /// Opens the model once and keeps it for the session.
@@ -230,8 +244,12 @@ final class Speaker {
     private func prepareAudio() throws {
         guard engine == nil else { return }
         let session = AVAudioSession.sharedInstance()
+        // `.playback` is deliberate: a reading is the app's purpose, so it keeps going with the
+        // silent switch on, the way a podcast does.
         try session.setCategory(.playback, mode: .spokenAudio)
         try session.setActive(true)
+        listenForInterruptions()
+        setUpRemoteCommands()
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
         engine.attach(player)
@@ -246,6 +264,80 @@ final class Speaker {
         self.engine = engine
         self.player = player
         self.format = format
+    }
+
+    // MARK: - The lock screen
+
+    /// What the lock screen says, and whether it offers play or pause. The verse's book and chapter
+    /// come from the app, so this file does not learn how to name a chapter.
+    private func updateNowPlaying() {
+        guard phase.isOn, let chapter else {
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
+            return
+        }
+        var info: [String: Any] = [
+            MPMediaItemPropertyTitle: chapterTitle?(chapter) ?? "Lamplit",
+            MPMediaItemPropertyArtist: "Lamplit",
+            MPNowPlayingInfoPropertyPlaybackRate: phase == .reading ? 1.0 : 0.0,
+            MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
+        ]
+        if let spoken = speaking {
+            info[MPMediaItemPropertyAlbumTitle] = "Verse \(spoken)"
+        }
+        MPNowPlayingInfoCenter.default().nowPlayingInfo = info
+    }
+
+    private func setUpRemoteCommands() {
+        let centre = MPRemoteCommandCenter.shared()
+        centre.playCommand.isEnabled = true
+        centre.pauseCommand.isEnabled = true
+        centre.togglePlayPauseCommand.isEnabled = true
+        centre.playCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.resume() }
+            return .success
+        }
+        centre.pauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in self?.pause() }
+            return .success
+        }
+        centre.togglePlayPauseCommand.addTarget { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                if self.phase == .paused { self.resume() } else { self.pause() }
+            }
+            return .success
+        }
+    }
+
+    /// A call, or another app taking the audio: stop talking, and pick up where it left off if the
+    /// system says the interruption is over and the reading may carry on.
+    private func listenForInterruptions() {
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let raw = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                let type = AVAudioSession.InterruptionType(rawValue: raw)
+            else { return }
+            let options = (note.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt)
+                .map(AVAudioSession.InterruptionOptions.init(rawValue:)) ?? []
+            Task { @MainActor in
+                guard let self else { return }
+                switch type {
+                case .began:
+                    self.interrupted = self.phase == .reading
+                    self.player?.pause()
+                    if self.phase == .reading { self.phase = .paused }
+                case .ended:
+                    guard self.interrupted, options.contains(.shouldResume) else { return }
+                    self.interrupted = false
+                    try? AVAudioSession.sharedInstance().setActive(true)
+                    self.player?.play()
+                    if self.phase == .paused { self.phase = .reading }
+                @unknown default:
+                    break
+                }
+            }
+        }
     }
 
     private func play(_ samples: [Float]) async {
