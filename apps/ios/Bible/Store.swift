@@ -328,8 +328,10 @@ final class Store {
     }
 
     /// The verses of a chapter as Read Aloud says them, opening announcement and all.
-    func spoken(_ chapter: Int) -> [SpokenUtterance] {
-        (try? bible.spokenChapter(translation: settings.translation, index: UInt16(chapter))) ?? []
+    func spoken(_ chapter: Int, from verse: Int? = nil) -> [SpokenUtterance] {
+        (try? bible.spokenChapter(
+            translation: settings.translation, index: UInt16(chapter),
+            from: verse.map { UInt8(clamping: $0) })) ?? []
     }
 
     /// Starts the reading where the page is standing, or stops the one that is running.
@@ -342,8 +344,9 @@ final class Store {
             sheet = .listen
             return
         }
-        speaker.start(chapterIndex: position.chapter) { [weak self] index in
-            (self?.spoken(index) ?? [], index)
+        // The voice follows the page: it starts at the verse at the reading line, not the top.
+        speaker.start(chapterIndex: position.chapter, fromVerse: Int(position.verse)) { [weak self] index, from in
+            (self?.spoken(index, from: from) ?? [], index)
         }
     }
 

@@ -84,7 +84,7 @@ final class Speaker {
     private var next = 0
     private var deadline: Date?
     /// Fetches a chapter's utterances and says where it is, so Keep reading can walk on.
-    private var provider: ((Int) -> (verses: [SpokenUtterance], chapter: Int))?
+    private var provider: ((Int, Int?) -> (verses: [SpokenUtterance], chapter: Int))?
 
     /// Where an installed voice lives: the app's own container.
     static var directory: URL {
@@ -101,9 +101,12 @@ final class Speaker {
 
     /// Starts at `chapterIndex`, saying its verses from the first word. `provider` is what lets the
     /// reading carry on into the next chapter when the timer is not the thing stopping it.
-    func start(chapterIndex: Int, provider: @escaping (Int) -> (verses: [SpokenUtterance], chapter: Int)) {
+    func start(
+        chapterIndex: Int, fromVerse: Int? = nil,
+        provider: @escaping (Int, Int?) -> (verses: [SpokenUtterance], chapter: Int)
+    ) {
         self.provider = provider
-        let first = provider(chapterIndex)
+        let first = provider(chapterIndex, fromVerse)
         guard !first.verses.isEmpty else {
             phase = .failed("there is nothing here to read")
             return
@@ -187,7 +190,8 @@ final class Speaker {
         guard !Task.isCancelled else { return }
         // The chapter is done. Keep reading walks on; anything else stops with the chapter.
         if stopAfter == .keepReading, let chapter, let provider {
-            let following = provider(chapter + 1)
+            // A chapter the reading walks into starts at its first verse, and says so.
+            let following = provider(chapter + 1, nil)
             if !following.verses.isEmpty {
                 self.chapter = following.chapter
                 utterances = following.verses

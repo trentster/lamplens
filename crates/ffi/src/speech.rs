@@ -194,7 +194,7 @@ mod tests {
         let bible = crate::Bible::new(dir.to_string_lossy().to_string()).expect("a bible");
         let john = crate::books().into_iter().find(|b| b.name == "John").expect("John");
         let index = u16::from(john.first_chapter) + 2; // John 3
-        let said = bible.spoken_chapter("kjv".to_string(), index).expect("John 3");
+        let said = bible.spoken_chapter("kjv".to_string(), index, None).expect("John 3");
         assert!(said.len() > 30, "John 3 came back as {} utterances", said.len());
         assert!(said[0].verse.is_none(), "the first utterance should be the announcement");
         assert!(said[0].text.contains("John"), "the announcement does not name the book: {}", said[0].text);
@@ -202,6 +202,25 @@ mod tests {
         assert_eq!(numbered.first().copied(), Some(1), "the reading does not start at verse 1");
         assert!(numbered.windows(2).all(|w| w[0] <= w[1]), "the verses are out of order");
         assert!(said.iter().all(|u| !u.text.trim().is_empty()), "an empty utterance would be silence");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Starting at a verse mid-chapter announces where it is starting, in the shared engine's words.
+    #[test]
+    fn starting_mid_chapter_announces_the_verse_it_starts_at() {
+        let dir = std::env::temp_dir().join("bible-rs-ffi-midchapter");
+        let _ = std::fs::remove_dir_all(&dir);
+        let bible = crate::Bible::new(dir.to_string_lossy().to_string()).expect("a bible");
+        let john = crate::books().into_iter().find(|b| b.name == "John").expect("John");
+        let index = u16::from(john.first_chapter) + 2;
+        let said = bible.spoken_chapter("kjv".to_string(), index, Some(16)).expect("John 3:16 on");
+        assert!(said[0].verse.is_none(), "the opening is not a verse");
+        assert!(
+            said[0].text.contains("verse sixteen"),
+            "the opening does not say where it starts: {}",
+            said[0].text
+        );
+        assert_eq!(said.iter().filter_map(|u| u.verse).min(), Some(16), "it began before verse 16");
         let _ = std::fs::remove_dir_all(&dir);
     }
 

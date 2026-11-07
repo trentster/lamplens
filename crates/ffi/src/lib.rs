@@ -338,6 +338,7 @@ impl Bible {
         &self,
         translation: String,
         index: u16,
+        from: Option<u8>,
     ) -> Result<Vec<speech::SpokenUtterance>, BibleError> {
         let c = ChapterIdx(index.min(CHAPTER_COUNT as u16 - 1));
         let lib = self.library();
@@ -346,8 +347,14 @@ impl Bible {
             Chapter::Missing => return Err(fail("that chapter is not in this translation")),
             Chapter::Failed(message) => return Err(fail(message)),
         };
-        let verses: Vec<(u32, String)> =
-            text.verses_in(c).map(|v| (v.number as u32, v.text.to_string())).collect();
+        // Starting mid-chapter is announced too: "John, chapter three, verse sixteen". That is the
+        // shared engine's own wording, which is why the phone does not word it again.
+        let first = from.unwrap_or(1).max(1) as u32;
+        let verses: Vec<(u32, String)> = text
+            .verses_in(c)
+            .map(|v| (v.number as u32, v.text.to_string()))
+            .filter(|(number, _)| *number >= first)
+            .collect();
         let said = bible_core::speak::chapter(c.book().name(), c.chapter() as u32, &verses);
         Ok(said
             .into_iter()

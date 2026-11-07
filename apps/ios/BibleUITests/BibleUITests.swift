@@ -224,6 +224,26 @@ final class BibleUITests: XCTestCase {
 
     /// John 3:16 is the most cross-referenced verse there is: the row must appear, the card must
     /// list the links, and tapping one must go there.
+    /// The picker's other way in: chapters still move you with one tap, and a book can also be
+    /// entered by verse without scrolling past its chapters.
+    func testPicksAVerseWithoutLeavingThePicker() {
+        app.buttons["reference"].tap()
+        let john = app.buttons["John"].firstMatch
+        XCTAssertTrue(john.waitForExistence(timeout: 5))
+        john.tap()
+        let verses = app.buttons["Verses"].firstMatch
+        XCTAssertTrue(verses.waitForExistence(timeout: 5), "a book offers no way in by verse")
+        verses.tap()
+        let chapterThree = app.buttons["John 3"].firstMatch
+        XCTAssertTrue(chapterThree.waitForExistence(timeout: 5))
+        chapterThree.tap()
+        let verseSixteen = app.buttons["John 3:16"].firstMatch
+        XCTAssertTrue(verseSixteen.waitForExistence(timeout: 5), "John 3 shows no verses")
+        verseSixteen.tap()
+        expectChapter("John 3")
+        XCTAssertTrue(verse("John 3:16").waitForExistence(timeout: 5))
+    }
+
     /// Read Aloud on a fresh install: the button opens the panel, and the panel offers the one-time
     /// download rather than trying to speak without a voice.
     func testListenOffersTheVoiceDownloadWhenThereIsNoVoice() {

@@ -7,8 +7,9 @@ struct BookPicker: View {
     let theme: Theme
     @State private var query = ""
     @State private var open: UInt8?
-    /// The chapter whose verses are showing, if any.
-    @State private var openChapter: Int?
+    /// Whether a book is entered by chapter or by verse, and which chapter's verses are showing.
+    @State private var byVerse = false
+    @State private var verseChapter: Int?
 
     var body: some View {
         NavigationStack {
@@ -97,7 +98,17 @@ struct BookPicker: View {
         }
         .accessibilityHint(book.chapters == 1 ? "Opens the book" : "Shows its chapters")
         if open == book.index && book.chapters > 1 {
-            chapters(book)
+            Picker("Way in", selection: $byVerse) {
+                Text("Chapters").tag(false)
+                Text("Verses").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .padding(.vertical, 6)
+            if byVerse {
+                verseWay(book)
+            } else {
+                chapters(book)
+            }
         }
     }
 
@@ -108,11 +119,7 @@ struct BookPicker: View {
                 let index = Int(book.firstChapter) + n - 1
                 let current = index == currentChapter
                 Button {
-                    // A chapter opens its verses instead of leaving the screen: the Mac's rule is
-                    // that choosing a verse never means scrolling past chapters to get to it.
-                    withAnimation(.smooth(duration: 0.2)) {
-                        openChapter = openChapter == index ? nil : index
-                    }
+                    go(chapter: index)
                 } label: {
                     Text("\(n)")
                         .font(.body.monospacedDigit().weight(current ? .semibold : .regular))
@@ -128,9 +135,37 @@ struct BookPicker: View {
         }
         .padding(.vertical, 6)
 
-        if let openChapter {
-            verses(of: openChapter, in: book)
+    }
+
+    /// Choosing a verse: the book's chapters across the top, the chosen chapter's verses below.
+    /// Neither list scrolls past the other, which is the rule the Mac's picker was built to.
+    private func verseWay(_ book: BookInfo) -> some View {
+        // Start on the chapter the reader is looking at, when it is in this book; else its first.
+        let here = store.position.chapter
+        let chapter = verseChapter ?? (store.book(of: here).index == book.index ? here : Int(book.firstChapter))
+        return VStack(alignment: .leading, spacing: 8) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 6)], spacing: 6) {
+                ForEach(1...Int(book.chapters), id: \.self) { n in
+                    let index = Int(book.firstChapter) + n - 1
+                    let current = index == chapter
+                    Button {
+                        withAnimation(.smooth(duration: 0.2)) { verseChapter = index }
+                    } label: {
+                        Text("\(n)")
+                            .font(.footnote.monospacedDigit().weight(current ? .semibold : .regular))
+                            .frame(maxWidth: .infinity, minHeight: 38)
+                            .foregroundStyle(current ? Color(theme.onAccent) : Color(theme.ink))
+                            .background(
+                                current ? Color(theme.accent) : Color(theme.fill),
+                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(book.name) \(n)")
+                }
+            }
+            verses(of: chapter, in: book)
         }
+        .padding(.vertical, 4)
     }
 
     /// Every verse of a chapter on one screen, its verse numbers under the chapter it belongs to.
