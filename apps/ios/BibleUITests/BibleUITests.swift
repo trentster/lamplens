@@ -15,6 +15,20 @@ final class BibleUITests: XCTestCase {
 
     private var reference: XCUIElement { app.buttons["reference"] }
 
+    /// A book row in the picker, scrolled to if it is not on screen yet.
+    ///
+    /// The picker opens with the book you are reading expanded and centred, so a book later in the
+    /// canon needs scrolling down to. Swipe **up** only: a downward drag on a sheet pulls it closed,
+    /// which reads as "the book list is empty" and wastes an afternoon.
+    private func bookRow(_ name: String) -> XCUIElement {
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        if row.waitForExistence(timeout: 2) { return row }
+        for _ in 0..<10 where !row.exists {
+            app.swipeUp(velocity: .fast)
+        }
+        return row
+    }
+
     private func verse(_ id: String) -> XCUIElement { app.staticTexts[id] }
 
     /// Types a reference into the toolbar's field and waits for the page to move.
@@ -81,14 +95,21 @@ final class BibleUITests: XCTestCase {
 
     func testPicksABookAndChapter() {
         reference.tap()
-        let romans = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Romans'")).firstMatch
-        XCTAssertTrue(romans.waitForExistence(timeout: 3))
+        let romans = bookRow("Romans")
+        XCTAssertTrue(romans.waitForExistence(timeout: 5), "Romans is not in the book list")
         romans.tap()
         let twelve = app.buttons["Romans 12"]
-        XCTAssertTrue(twelve.waitForExistence(timeout: 3))
+        if !twelve.waitForExistence(timeout: 3) {
+            // The chapter grid sits under the book row; a phone can need a nudge to show it.
+            app.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(twelve.waitForExistence(timeout: 3), "Romans offers no chapter 12")
         twelve.tap()
         expectChapter("Romans 12")
-        XCTAssertTrue(verse("Romans 12:1").label.contains("living sacrifice"))
+        XCTAssertTrue(
+            verse("Romans 12:1").label.contains("living sacrifice"),
+            "the page did not open at Romans 12:1"
+        )
     }
 
     func testPsalmsOpenFromAReference() {
@@ -228,9 +249,8 @@ final class BibleUITests: XCTestCase {
     /// entered by verse without scrolling past its chapters.
     func testPicksAVerseWithoutLeavingThePicker() {
         app.buttons["reference"].tap()
-        let john = app.buttons["John"].firstMatch
-        XCTAssertTrue(john.waitForExistence(timeout: 5))
-        john.tap()
+        // The picker opens with the book you are reading already expanded (John 1 on a fresh
+        // launch), so both ways in are offered without touching the row.
         let verses = app.buttons["Verses"].firstMatch
         XCTAssertTrue(verses.waitForExistence(timeout: 5), "a book offers no way in by verse")
         verses.tap()
