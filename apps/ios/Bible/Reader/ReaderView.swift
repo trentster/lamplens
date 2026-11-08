@@ -176,6 +176,13 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
         if placed.isEmpty { return }
         fill(style)
+        // Last line of defence: the visible page must sit inside the strip. If it ever does not,
+        // nothing draws and dragging goes nowhere — a frozen page over a reading that carries on.
+        if let last = placed.last, contentOffset.y > last.maxY {
+            reset(around: last.layout.index, style: style)
+            contentOffset.y = 0
+            fill(style)
+        }
         updateTiles()
         report()
         typesetAhead(style)
@@ -201,6 +208,8 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         contentOffset = CGPoint(x: 0, y: offset(for: p, verse: jump.verse))
         fill(style)
         if jump.flash { flash(chapter: chapter, verse: jump.verse) }
+        // A move to another chapter is a layout change worth announcing; scrolling is not.
+        UIAccessibility.post(notification: .layoutChanged, argument: nil)
     }
 
     /// The offset that puts a verse (or the chapter's head, for verse 1) at the reading line.
@@ -278,7 +287,7 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
         while let first = placed.first, first.y > contentOffset.y - ahead, first.layout.index > 0 {
             let layout = typeset(first.layout.index - 1, style)
-            shift(by: layout.height)
+            guard shift(by: layout.height) else { break }
             placed.insert(Placed(layout: layout, y: 0), at: 0)
             changed = true
         }
@@ -288,33 +297,37 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
         while placed.count > 1, placed[0].maxY < contentOffset.y - keep {
             let h = placed[0].layout.height
+            guard shift(by: -h) else { break }
             placed.removeFirst()
-            shift(by: -h)
             changed = true
         }
         if changed {
             contentSize = CGSize(width: bounds.width, height: placed.last?.maxY ?? 0)
             accessibilityCache = nil
-            UIAccessibility.post(notification: .layoutChanged, argument: nil)
         }
     }
 
-    /// Moves everything down by `dy` (up if negative) without anything moving on screen.
-    private func shift(by dy: CGFloat) {
-        for i in placed.indices { placed[i].y += dy }
-        tileOrigin += dy
-        for tile in tiles.values { tile.frame.origin.y += dy }
-        for layer in flashLayers { layer.position.y += dy }
-        // The offset must stay inside the content throughout, or the scroll view clamps it.
-        let offset = contentOffset.y + dy
-        lastOffset += dy
-        if dy > 0 {
-            contentSize.height += dy
-            contentOffset.y = offset
-        } else {
-            contentOffset.y = offset
-            contentSize.height += dy
-        }
+    /// Moves everything by `dy` (down if positive) without anything moving on screen.
+    ///
+    /// The scroll view clamps its own offset to the content it had when the offset was set, so the
+    /// strip and the page can end up disagreeing — the offset moves by less than `placed` did and
+    /// the visible area falls into a gap thousands of points from the nearest verse, which reads as
+    /// a frozen page. So the offset is clamped here first and the strip is moved by what the scroll
+    /// view actually allowed. `false` means there was no room, and the caller must not insert.
+    @discardableResult
+    private func shift(by dy: CGFloat) -> Bool {
+        let room = max(0, contentSize.height + dy - bounds.height)
+        let target = min(max(contentOffset.y + dy, 0), room)
+        let applied = target - contentOffset.y
+        guard abs(applied - dy) < 0.5 else { return false }
+        for i in placed.indices { placed[i].y += applied }
+        tileOrigin += applied
+        for tile in tiles.values { tile.frame.origin.y += applied }
+        for layer in flashLayers { layer.position.y += applied }
+        contentSize.height += applied
+        contentOffset.y = target
+        lastOffset = target
+        return true
     }
 
     // MARK: Tiles

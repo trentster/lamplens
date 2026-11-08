@@ -245,6 +245,28 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(verse("John 1:1").exists)
     }
 
+    /// The baseline the reading test is measured against: an ordinary page scrolls.
+    func testThePageScrollsWithNoReading() {
+        let before = reference.label
+        for _ in 0..<12 { app.swipeUp(velocity: .fast) }
+        XCTAssertNotEqual(before, reference.label, "the page would not scroll even with no reading running")
+    }
+
+    /// Mark's report: with a reading running, the page would not scroll while the voice kept going.
+    /// Nothing about the reading is allowed to take the page away from the reader.
+    func testThePageStillScrollsWhileReading() {
+        app.buttons["listen"].tap()
+        if app.buttons["chooseVoice"].waitForExistence(timeout: 4) {
+            app.buttons["chooseVoice"].tap()
+        }
+        XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 15), "the reading did not start")
+        let before = reference.label
+        for _ in 0..<12 { app.swipeUp(velocity: .fast) }
+        XCTAssertNotEqual(before, reference.label, "the page would not scroll while a reading was running")
+        // Turning the page stops the reading; the bar goes with it.
+        XCTAssertFalse(app.buttons["listenPause"].exists, "the reading should have stopped when the page turned")
+    }
+
     func testScrollingDoesNotHitch() {
         let options = XCTMeasureOptions()
         options.iterationCount = 5
