@@ -59,7 +59,7 @@ struct SearchView: View {
             .overlay { emptyState }
             .searchable(
                 text: $query, isPresented: $focused, placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Search the \(store.translation?.abbrev ?? "Bible")"
+                prompt: "Search verses"
             )
             .searchScopes($scope, activation: .onSearchPresentation) {
                 Text("All").tag(Scope.all)
@@ -90,7 +90,7 @@ struct SearchView: View {
         let trimmed = query.trimmingCharacters(in: .whitespaces)
         if trimmed.isEmpty {
             ContentUnavailableView {
-                Label("Search the \(store.translation?.abbrev ?? "Bible")", systemImage: "magnifyingglass")
+                Label("Search \(store.translation?.name ?? "the Bible")", systemImage: "magnifyingglass")
             } description: {
                 Text("Every word must appear. Use “quotes” for a phrase and -word to leave a word out.")
             }
