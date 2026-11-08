@@ -62,9 +62,6 @@ final class Speaker {
     }
 
     private(set) var phase: Phase = .off
-    /// Milliseconds from asking to read to the first word being scheduled; nil until a reading runs.
-    private(set) var firstAudioMs: Double?
-    @ObservationIgnored private var askedAt: CFAbsoluteTime?
     /// The verse being said right now, so the page can follow it.
     private(set) var speaking: UInt8?
     /// The chapter the reading is in, which may not be the one on screen once it carries on.
@@ -155,8 +152,6 @@ final class Speaker {
         chapter = first.chapter
         utterances = first.verses
         next = 0
-        askedAt = CFAbsoluteTimeGetCurrent()
-        firstAudioMs = nil
         held = nil
         deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
         phase = .preparing
@@ -301,10 +296,6 @@ final class Speaker {
             guard !Task.isCancelled else { return }
             phase = .reading
             updateNowPlaying()
-            if let asked = askedAt, firstAudioMs == nil {
-                let ms = (CFAbsoluteTimeGetCurrent() - asked) * 1000
-                record(firstAudio: ms)
-            }
             await play(pcm)
             if utterance.pauseMs > 0, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(utterance.pauseMs) * 1_000_000)
@@ -332,14 +323,6 @@ final class Speaker {
         stop()
     }
 
-    /// Leaves the measurement where the build machine can read it off the phone: nobody can see a
-    /// stopwatch in someone's pocket, and a claim about speed has to come from somewhere real.
-    private func record(firstAudio ms: Double) {
-        firstAudioMs = ms
-        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let text = String(format: "first audio %.0f ms after Listen, voice bundled\n", ms)
-        try? text.write(to: dir.appendingPathComponent("listen-timing.txt"), atomically: true, encoding: .utf8)
-    }
 
     private func makeSamples(_ text: String, synth: Synth) -> Task<[Float], Error> {
         makeSamples(text, voice: voice, synth: synth)
