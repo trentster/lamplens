@@ -98,14 +98,11 @@ MARKETING_VERSION = $VERSION
 CURRENT_PROJECT_VERSION = $BUILD_NUMBER
 EOF
 
-# The voice ships inside the app: fetched once per build machine, checked file by file against the
-# pins in bible-core, then copied in. Never fetched at runtime, so Read Aloud works on the first
-# launch with the phone in airplane mode.
-cargo run --quiet -p xtask -- fetch-speech
-rm -rf "$IOS/Voice"
-mkdir -p "$IOS/Voice"
-cp "$ROOT/data/speech/"* "$IOS/Voice/"
-echo "voice bundled: $(du -sh "$IOS/Voice" | cut -f1)"
+# The voice ships inside the app, and only the pinned files: xtask copies exactly
+# bible_core::speak::bundle::FILES, checks each SHA-256 while it copies, drops anything else that is
+# sitting in the folder, and fails the build on a mismatch. A stray model can never reach the App
+# Store build this way.
+cargo run --quiet -p xtask -- stage-speech --dest "$IOS/Voice"
 
 xcodegen generate --quiet --spec "$IOS/project.yml" --project "$IOS"
 if [[ "$FRAMEWORK_ONLY" == 1 ]]; then

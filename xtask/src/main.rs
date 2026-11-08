@@ -10,6 +10,7 @@ use std::process::Command;
 
 use anyhow::{Context, Result, bail};
 use bible_core::format;
+use bible_core::speak::bundle;
 use bible_core::model::{Origin, TranslationBuilder, TranslationMeta};
 use bible_core::usfm;
 use sha2::{Digest, Sha256};
@@ -214,6 +215,7 @@ fn main() -> Result<()> {
         Some("build-lexicon") => build_lexicon(&root, &args[1..]),
         Some("build-wordnet") => build_wordnet(&root),
         Some("fetch-speech") => fetch_speech(&root),
+        Some("stage-speech") => stage_speech(&root, &args[1..]),
         Some("fetch") => {
             for s in selected(&args[1..]) {
                 fetch(&root, s)?;
@@ -222,7 +224,7 @@ fn main() -> Result<()> {
         }
         _ => {
             eprintln!(
-                "usage: cargo run -p xtask -- build-data [ids…] | build-lexicon [ids…] | build-wordnet | fetch-speech | fetch [ids…]"
+                "usage: cargo run -p xtask -- build-data [ids…] | build-lexicon [ids…] | build-wordnet | fetch-speech | stage-speech --dest <dir> | fetch [ids…]"
             );
             std::process::exit(2)
         }
@@ -545,4 +547,61 @@ fn write_compressed(dir: &Path, name: &str, text: &[u8]) -> Result<std::path::Pa
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// Copies exactly the pinned voice files into an app bundle's resource folder.
+///
+/// The app ships the voice, so what goes in must be the pinned set and nothing else: a stray file in
+/// the source folder — a model from an earlier experiment, say — would otherwise be carried into the
+/// App Store build. Every file is checked against `bible_core::speak::bundle::FILES` while it is
+/// copied, and any mismatch or missing file fails the build rather than shipping quietly.
+fn stage_speech(root: &Path, args: &[String]) -> Result<()> {
+    let dest = args
+        .windows(2)
+        .find(|w| w[0] == "--dest")
+        .map(|w| PathBuf::from(&w[1]))
+        .ok_or_else(|| anyhow::anyhow!("stage-speech needs --dest <dir>"))?;
+
+    // One source of truth for the pins. The download list above carries the URLs; if the two ever
+    // disagree, the app would ship a file the runtime refuses to load.
+    for (name, sha) in bundle::FILES {
+        match SPEECH.iter().find(|(n, _, _)| n == name) {
+            Some((_, _, pinned)) if pinned == sha => {}
+            Some((_, _, pinned)) => anyhow::bail!("{name}: xtask pins {pinned}, bible-core pins {sha}"),
+            None => anyhow::bail!("{name}: in bible-core's FILES but not in xtask's download list"),
+        }
+    }
+
+    fetch_speech(root)?;
+
+    std::fs::create_dir_all(&dest)?;
+    let pinned: Vec<&str> = bundle::FILES.iter().map(|(name, _)| *name).collect();
+    for entry in std::fs::read_dir(&dest)? {
+        let path = entry?.path();
+        let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+        if !pinned.contains(&name.as_str()) {
+            std::fs::remove_file(&path)?;
+            println!("dropped {name}: not a pinned voice file");
+        }
+    }
+
+    let mut bytes = 0u64;
+    for (name, sha) in bundle::FILES {
+        let from = root.join("data/speech").join(name);
+        let data = std::fs::read(&from).map_err(|e| anyhow::anyhow!("{}: {e}", from.display()))?;
+        let got = hex(&Sha256::digest(&data));
+        if got != *sha {
+            anyhow::bail!("{name}: sha256 {got}, expected {sha}; refusing to ship it");
+        }
+        std::fs::write(dest.join(name), &data)?;
+        bytes += data.len() as u64;
+        println!("  {name:<28} {:>10} bytes  {:>8.1} MB  ok", data.len(), data.len() as f64 / 1e6);
+    }
+    println!(
+        "voice bundled: {} files, {:.1} MB → {}",
+        bundle::FILES.len(),
+        bytes as f64 / 1e6,
+        dest.display()
+    );
+    Ok(())
 }
