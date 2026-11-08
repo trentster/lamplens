@@ -97,8 +97,8 @@ struct SettingsView: View {
                 }
 
                 Section("Data") {
-                    ExportButton(title: "Export as Markdown", format: .markdown, file: "Bible notes.md")
-                    ExportButton(title: "Export as JSON", format: .json, file: "Bible notes.json")
+                    ExportButton(title: "Export as Markdown", format: .markdown, file: "Lamplit notes.md")
+                    ExportButton(title: "Export as JSON", format: .json, file: "Lamplit notes.json")
                 }
 
                 Section("About") {
