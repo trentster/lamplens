@@ -93,6 +93,10 @@ final class Speaker {
     private var work: Task<Void, Never>?
     private var utterances: [SpokenUtterance] = []
     private var next = 0
+    /// Whether the notifications and lock-screen targets are in place. They are registered once, not
+    /// once per engine.
+    private var observersInstalled = false
+
     private var deadline: Date?
     /// Time left on the sleep timer when the reading was paused. The Mac holds the clock with the
     /// voice and puts the deadline back when play resumes; wall-clock time spent paused is not time
@@ -378,9 +382,14 @@ final class Speaker {
         // silent switch on, the way a podcast does.
         try session.setCategory(.playback, mode: .spokenAudio)
         try session.setActive(true)
-        listenForInterruptions()
-        listenForAudioChanges()
-        setUpRemoteCommands()
+        // Once for the life of the speaker: adding these on every engine rebuild stacked up targets
+        // and observers, so one headphone tap fired play-then-pause and cancelled itself out.
+        if !observersInstalled {
+            observersInstalled = true
+            listenForInterruptions()
+            listenForAudioChanges()
+            setUpRemoteCommands()
+        }
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
         engine.attach(player)
