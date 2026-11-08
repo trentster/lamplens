@@ -271,23 +271,46 @@ final class Speaker {
     private func run() async {
         guard let synth = await openVoice(), !Task.isCancelled else { return }
         var job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
-        while next < utterances.count, !Task.isCancelled {
-            if let deadline, Date() >= deadline {
-                // A timed reading finishes the sentence it is in the middle of, then stops.
-                break
+        while !Task.isCancelled {
+            if next >= utterances.count {
+                // The chapter is finished. Keep reading walks into the next one; anything else stops
+                // here. A loop, not a call back into run(): an all-night reading would otherwise
+                // stack a frame per chapter until the thread gave out.
+                guard stopAfter == .keepReading, let chapter, let provider else { break }
+                let following = provider(chapter + 1, nil)
+                guard !following.verses.isEmpty else { break }
+                self.chapter = following.chapter
+                utterances = following.verses
+                next = 0
+                job = makeSamples(utterances[0].text, synth: synth)
+                continue
             }
             let utterance = utterances[next]
-            next += 1
-            if let verse = utterance.verse {
-                speaking = verse
-                updateNowPlaying()
-            }
-            let pcm: [Float]
+            var pcm: [Float]
             do {
                 pcm = try await (job ?? makeSamples(utterance.text, synth: synth)).value
             } catch {
                 phase = .failed("\(error)")
                 return
+            }
+            // The clock may fall inside this sentence: say only as far as it allows and fade the
+            // last second, so a timer ends the reading instead of cutting it off. The Mac does the
+            // same in `play_piece`, at 0.9 s.
+            var endsTheReading = false
+            if let deadline {
+                let rate = Double(synth.rate)
+                let left = deadline.timeIntervalSinceNow
+                if left <= Double(pcm.count) / rate {
+                    let keep = max(0, min(pcm.count, Int(left * rate)))
+                    pcm.removeLast(pcm.count - keep)
+                    fadeOut(&pcm, rate: rate)
+                    endsTheReading = true
+                }
+            }
+            next += 1
+            if let verse = utterance.verse {
+                speaking = verse
+                updateNowPlaying()
             }
             // Start the next one before this one is played: synthesis takes a fifth of a second a
             // verse, and a phone with its screen off has no other work to hide it behind.
@@ -296,6 +319,7 @@ final class Speaker {
             phase = .reading
             updateNowPlaying()
             await play(pcm)
+            if endsTheReading { break }
             if utterance.pauseMs > 0, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(utterance.pauseMs) * 1_000_000)
             }
@@ -307,21 +331,20 @@ final class Speaker {
             }
         }
         guard !Task.isCancelled else { return }
-        // The chapter is done. Keep reading walks on; anything else stops with the chapter.
-        if stopAfter == .keepReading, let chapter, let provider {
-            // A chapter the reading walks into starts at its first verse, and says so.
-            let following = provider(chapter + 1, nil)
-            if !following.verses.isEmpty {
-                self.chapter = following.chapter
-                utterances = following.verses
-                next = 0
-                await run()
-                return
-            }
-        }
         stop()
     }
 
+    /// How long the last sentence fades when the timer ends the reading. The Mac's `FADE_SECONDS`.
+    private static let fadeSeconds = 0.9
+
+    /// Takes the voice down to nothing over the last second, so the ending is heard as an ending.
+    private func fadeOut(_ pcm: inout [Float], rate: Double) {
+        let fade = min(pcm.count, Int(Self.fadeSeconds * rate))
+        guard fade > 0 else { return }
+        for i in (pcm.count - fade)..<pcm.count {
+            pcm[i] *= Float(pcm.count - i) / Float(fade)
+        }
+    }
 
     private func makeSamples(_ text: String, synth: Synth) -> Task<[Float], Error> {
         makeSamples(text, voice: voice, synth: synth)
