@@ -340,7 +340,9 @@ final class Store {
 
     /// The verses of a chapter as Read Aloud says them, opening announcement and all.
     func spoken(_ chapter: Int, from verse: Int? = nil) -> [SpokenUtterance] {
-        (try? bible.spokenChapter(
+        Breadcrumbs.mark("asking for chapter \(chapter) to read")
+        defer { Breadcrumbs.mark("chapter \(chapter) ready to read") }
+        return (try? bible.spokenChapter(
             translation: settings.translation, index: UInt16(chapter),
             from: verse.map { UInt8(clamping: $0) })) ?? []
     }

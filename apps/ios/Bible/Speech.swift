@@ -92,6 +92,8 @@ final class Speaker {
     /// Whether the notifications and lock-screen targets are in place. They are registered once, not
     /// once per engine.
     private var observersInstalled = false
+    /// True while a background task is bringing the engine back.
+    @ObservationIgnored private var restarting = false
 
     private var deadline: Date?
     /// Time left on the sleep timer when the reading was paused. The Mac holds the clock with the
@@ -385,8 +387,10 @@ final class Speaker {
         let session = AVAudioSession.sharedInstance()
         // `.playback` is deliberate: a reading is the app's purpose, so it keeps going with the
         // silent switch on, the way a podcast does.
+        Breadcrumbs.mark("activating the audio session")
         try session.setCategory(.playback, mode: .spokenAudio)
         try session.setActive(true)
+        Breadcrumbs.mark("audio session active")
         // Once for the life of the speaker: adding these on every engine rebuild stacked up targets
         // and observers, so one headphone tap fired play-then-pause and cancelled itself out.
         if !observersInstalled {
@@ -404,7 +408,9 @@ final class Speaker {
             throw SpeakerError.noFormat
         }
         engine.connect(player, to: engine.mainMixerNode, format: format)
+        Breadcrumbs.mark("starting the engine")
         try engine.start()
+        Breadcrumbs.mark("engine started")
         player.play()
         self.engine = engine
         self.player = player
@@ -415,10 +421,20 @@ final class Speaker {
     /// iOS stops the audio engine for an interruption or a route change. A player node scheduled on a
     /// stopped engine never finishes its buffer, so `play`'s continuation would wait for ever and the
     /// reading would go silent with no error: start the engine again before anything is asked to play.
+    /// Starting an engine blocks for as long as CoreAudio needs, and this is reached from
+    /// notifications that arrive while someone is scrolling the page. It must never run on the main
+    /// actor: a route change would otherwise freeze the screen behind a spinning audio session.
     private func startEngineIfNeeded() {
-        guard let engine, !engine.isRunning else { return }
-        try? AVAudioSession.sharedInstance().setActive(true)
-        try? engine.start()
+        guard let engine, !engine.isRunning, !restarting else { return }
+        Breadcrumbs.mark("restarting the engine off the main actor")
+        restarting = true
+        let session = AVAudioSession.sharedInstance()
+        let boot = EngineBoot(engine: engine, session: session)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            boot.run()
+            guard let self else { return }
+            await MainActor.run { self.restarting = false }
+        }
     }
 
     // MARK: - The lock screen
@@ -532,9 +548,36 @@ final class Speaker {
             buffer.floatChannelData?[0].update(from: source.baseAddress!, count: samples.count)
         }
         startEngineIfNeeded()
+        // A buffer scheduled on a stopped engine never completes, and the reading would wait on it
+        // for ever. Give the engine a moment to come back, then let this pass rather than wedge.
+        var waited = 0
+        while let engine, !engine.isRunning, waited < 2_000, !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: 50_000_000)
+            waited += 50
+        }
+        guard engine?.isRunning == true else { return }
+        Breadcrumbs.mark("scheduling \(samples.count) samples")
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
             player.scheduleBuffer(buffer) { done.resume() }
         }
+        Breadcrumbs.mark("buffer played")
+    }
+}
+
+/// Holds what a restart needs, so the blocking part can happen off the main actor. `AVAudioEngine`
+/// is not `Sendable`, but starting it is thread-safe and this wrapper ensures one task at a time.
+private final class EngineBoot: @unchecked Sendable {
+    private let engine: AVAudioEngine
+    private let session: AVAudioSession
+
+    init(engine: AVAudioEngine, session: AVAudioSession) {
+        self.engine = engine
+        self.session = session
+    }
+
+    func run() {
+        try? session.setActive(true)
+        try? engine.start()
     }
 }
 

@@ -8,6 +8,7 @@ struct BibleApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                .task { Breadcrumbs.startIfAsked() }
                 .environment(store)
                 .task {
                     // The search text is built once the first page is up.
