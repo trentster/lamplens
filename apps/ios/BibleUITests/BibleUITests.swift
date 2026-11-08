@@ -269,6 +269,10 @@ final class BibleUITests: XCTestCase {
     func testAboutCarriesTheLicences() {
         app.buttons["settings"].tap()
         let about = app.buttons["About and licences"].firstMatch
+        // Settings opens at half height and About is the last section, so it starts below the fold.
+        for _ in 0..<4 where !about.exists {
+            app.swipeUp(velocity: .fast)
+        }
         XCTAssertTrue(about.waitForExistence(timeout: 5), "Settings offers no way into About")
         about.tap()
         XCTAssertTrue(
@@ -278,12 +282,15 @@ final class BibleUITests: XCTestCase {
             app.staticTexts["STEPBible"].waitForExistence(timeout: 5),
             "the STEPBible credit is missing"
         )
-        app.swipeUp(velocity: .fast)
-        XCTAssertTrue(
-            app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Lamplit, by Mark Trent'"))
-                .firstMatch.waitForExistence(timeout: 5),
-            "the sign-off is missing"
-        )
+        // The sign-off is the last thing on the screen, so scroll to it. `matching` reads the
+        // element's own label; `containing` looks at its descendants, which is a different question.
+        let signoff = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS %@", "Lamplit, by Mark Trent")
+        ).firstMatch
+        for _ in 0..<6 where !signoff.exists {
+            app.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(signoff.waitForExistence(timeout: 5), "the sign-off is missing")
     }
 
     /// Read Aloud on a fresh install: the button opens the panel, and the panel offers the one-time
