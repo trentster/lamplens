@@ -180,6 +180,7 @@ final class Speaker {
 
     func resume() {
         guard phase == .paused else { return }
+        startEngineIfNeeded()
         player?.play()
         // Put the deadline back where it was left.
         if let held {
@@ -378,6 +379,7 @@ final class Speaker {
         try session.setCategory(.playback, mode: .spokenAudio)
         try session.setActive(true)
         listenForInterruptions()
+        listenForAudioChanges()
         setUpRemoteCommands()
         let engine = AVAudioEngine()
         let player = AVAudioPlayerNode()
@@ -393,6 +395,16 @@ final class Speaker {
         self.engine = engine
         self.player = player
         self.format = format
+    }
+
+
+    /// iOS stops the audio engine for an interruption or a route change. A player node scheduled on a
+    /// stopped engine never finishes its buffer, so `play`'s continuation would wait for ever and the
+    /// reading would go silent with no error: start the engine again before anything is asked to play.
+    private func startEngineIfNeeded() {
+        guard let engine, !engine.isRunning else { return }
+        try? AVAudioSession.sharedInstance().setActive(true)
+        try? engine.start()
     }
 
     // MARK: - The lock screen
@@ -459,11 +471,38 @@ final class Speaker {
                 case .ended:
                     guard self.interrupted, options.contains(.shouldResume) else { return }
                     self.interrupted = false
+                    // The call took the engine with it; without this the player has nothing to play on.
+                    self.startEngineIfNeeded()
                     try? AVAudioSession.sharedInstance().setActive(true)
                     self.player?.play()
                     if self.phase == .paused { self.phase = .reading }
                 @unknown default:
                     break
+                }
+            }
+        }
+    }
+
+    /// The engine can also die without an interruption: a route change tears it down, and iOS says so
+    /// on its own notification rather than through the interruption one.
+    private func listenForAudioChanges() {
+        NotificationCenter.default.addObserver(
+            forName: NSNotification.Name.AVAudioEngineConfigurationChange, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.startEngineIfNeeded() }
+        }
+        NotificationCenter.default.addObserver(
+            forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
+        ) { [weak self] note in
+            guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
+                let reason = AVAudioSession.RouteChangeReason(rawValue: raw)
+            else { return }
+            Task { @MainActor in
+                // Headphones pulled out: Apple's guidance is to pause rather than startle the room.
+                if reason == .oldDeviceUnavailable {
+                    self?.pause()
+                } else {
+                    self?.startEngineIfNeeded()
                 }
             }
         }
@@ -478,6 +517,7 @@ final class Speaker {
         samples.withUnsafeBufferPointer { source in
             buffer.floatChannelData?[0].update(from: source.baseAddress!, count: samples.count)
         }
+        startEngineIfNeeded()
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
             player.scheduleBuffer(buffer) { done.resume() }
         }
