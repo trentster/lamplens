@@ -1,12 +1,16 @@
 //! What the voice is made of, and where it comes from.
 //!
-//! The app ships without a voice. On the reader's own instruction it fetches the model once — sixty
-//! odd megabytes, from a pinned release asset, each file checked against its SHA-256 before it is
-//! allowed anywhere near the speaker — and after that nothing is fetched, ever.
+//! On the iPhone the voice ships inside the app: `xtask stage-speech` copies exactly this list into
+//! the bundle at build time, checking every digest as it goes, so Read Aloud works on the first
+//! launch with the phone offline.
 //!
-//! The pin list lives here rather than in either frontend, because the Mac downloads with `ureq`
-//! and the phone downloads with Apple's `URLSession`: two ways of fetching, but they must fetch the
-//! same eight files and check the same eight digests. One list is the only way that stays true.
+//! On the Mac the app ships without a voice. On the reader's own instruction it fetches the model
+//! once — sixty odd megabytes, from a pinned release asset, each file checked against its SHA-256
+//! before it is allowed anywhere near the speaker — and after that nothing is fetched, ever.
+//!
+//! The pin list lives here rather than in either frontend: the Mac fetches with `ureq` and the phone
+//! ships with `xtask`, but both must agree on the same eight files and the same eight digests. One
+//! list is the only way that stays true.
 
 use std::path::Path;
 
@@ -29,7 +33,7 @@ pub const FILES: &[(&str, &str)] = &[
     ("freya.safetensors", "eb3cd47418349e618408c16bea7153988b3ad04b41a6033039dd474a9a4dcd23"),
 ];
 
-/// What the whole download weighs, for a progress figure the reader can judge.
+/// What the whole voice weighs: the progress figure the Mac shows, and what the phone carries.
 pub const TOTAL_BYTES: u64 = 66_073_850;
 
 /// The file a named voice is stored in.

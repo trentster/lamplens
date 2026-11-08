@@ -21,7 +21,6 @@ use bible_core::{BookId, ChapterIdx};
 
 pub mod content;
 pub mod credits;
-pub mod voice_copy;
 pub mod links;
 pub mod speech;
 pub mod tokens;
@@ -29,7 +28,7 @@ pub mod tokens;
 pub use content::{Block, BlockKind, ChapterContent, ChapterStatus, ContentOptions, Run};
 pub use credits::CreditRow;
 pub use links::{LexiconEntry, OriginalVerse, OriginalWord, RelatedLink};
-pub use speech::{Speech, VoiceFile, VoiceInfo};
+pub use speech::{Speech, VoiceInfo};
 pub use tokens::{Palette, ThemeName, palette};
 
 uniffi::setup_scaffolding!();

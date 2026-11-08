@@ -32,14 +32,6 @@ pub struct VoiceInfo {
     pub native_wpm: u16,
 }
 
-/// One file the voice is made of, and the digest it must have. The phone fetches it with
-/// `URLSession` and checks the digest before it counts as arriving.
-#[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
-pub struct VoiceFile {
-    pub name: String,
-    pub sha256: String,
-}
-
 /// One thing Read Aloud says: a sentence or a clause, how long to breathe after it, and the verse
 /// it belongs to (nothing for the opening announcement).
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -65,27 +57,6 @@ pub fn voices() -> Vec<VoiceInfo> {
             native_wpm: voice.native_wpm,
         })
         .collect()
-}
-
-/// Every file the voice needs, with its digest.
-#[uniffi::export]
-pub fn voice_files() -> Vec<VoiceFile> {
-    bundle::FILES
-        .iter()
-        .map(|(name, sha256)| VoiceFile { name: (*name).to_string(), sha256: (*sha256).to_string() })
-        .collect()
-}
-
-/// Where the files come from, before a name is appended.
-#[uniffi::export]
-pub fn voice_bundle_url() -> String {
-    bundle::BUNDLE_URL.to_string()
-}
-
-/// What the download weighs in total, for a progress figure a reader can judge.
-#[uniffi::export]
-pub fn voice_total_bytes() -> u64 {
-    bundle::TOTAL_BYTES
 }
 
 /// Whether every file is in `dir`. All eight, or it is not there.
@@ -138,16 +109,15 @@ impl Speech {
 mod tests {
     use super::*;
 
-    /// The list the phone downloads from must be the list `xtask` pins, or a phone would fetch a
-    /// voice the Mac does not have.
+    /// The voice the app ships must be the voice the engine expects: eight pinned files, and the
+    /// directory the app bundles has to hold exactly those.
     #[test]
-    fn the_download_list_is_the_pinned_list() {
-        let files = voice_files();
-        assert_eq!(files.len(), 8);
-        assert_eq!(files[0].name, "model.q8.gguf");
-        assert!(files.iter().all(|f| f.sha256.len() == 64));
-        assert!(voice_bundle_url().starts_with("https://github.com/trentster/lamplit/"));
-        assert!(voice_total_bytes() > 60_000_000);
+    fn the_pinned_list_is_the_whole_voice() {
+        let pinned = bible_core::speak::bundle::FILES;
+        assert_eq!(pinned.len(), 8);
+        assert_eq!(pinned[0].0, "model.q8.gguf");
+        assert!(pinned.iter().all(|(_, sha)| sha.len() == 64));
+        assert!(bible_core::speak::bundle::TOTAL_BYTES > 60_000_000);
     }
 
     #[test]
@@ -170,7 +140,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&empty);
     }
 
-    /// Skipped unless a voice is on this machine: CI has no 66 MB download and should not grow one.
+    /// Skipped unless a voice is on this machine: CI has no 66 MB of model and should not grow one.
     #[test]
     fn the_phone_side_can_speak_through_the_shared_engine() {
         let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../data/speech");
