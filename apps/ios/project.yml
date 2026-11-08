@@ -98,6 +98,10 @@ schemes:
         BibleUITests: [test]
     run:
       config: Debug
+      # The debug scheme always keeps the breadcrumb trail, so a freeze caught while running from
+      # Xcode leaves a once-a-second record of where the reader thought it was.
+      commandLineArguments:
+        "--hang-log": true
     test:
       config: Release
       targets:

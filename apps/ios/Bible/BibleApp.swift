@@ -9,6 +9,9 @@ struct BibleApp: App {
         WindowGroup {
             RootView()
                 .task { Breadcrumbs.startIfAsked() }
+                #if DEBUG
+                    .task { await ReaderStateDebug.followReadingIntoBreadcrumbs() }
+                #endif
                 .environment(store)
                 .task {
                     // The search text is built once the first page is up.

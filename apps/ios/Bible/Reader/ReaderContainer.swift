@@ -18,6 +18,9 @@ struct ReaderContainer: UIViewRepresentable {
     func makeUIView(context: Context) -> ReaderView {
         let view = ReaderView()
         view.readerDelegate = context.coordinator
+        #if DEBUG
+            ReaderStateDebug.reader = view
+        #endif
         return view
     }
 

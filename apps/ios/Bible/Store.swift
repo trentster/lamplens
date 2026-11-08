@@ -138,6 +138,9 @@ final class Store {
         self.translations = translations
         self.settings = settings
         self.position = position
+        #if DEBUG
+            ReaderStateDebug.store = self
+        #endif
         jump = JumpRequest(chapter: position.chapter, verse: position.verse)
     }
 

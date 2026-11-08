@@ -8,6 +8,8 @@ import Foundation
 enum Breadcrumbs {
     private static let queue = DispatchQueue(label: "bible-rs.breadcrumbs")
     private static var file: URL?
+    /// Whether the trail was asked for.
+    static var isOn: Bool { file != nil }
     /// The last step reached, so a stall detector can name it from another thread.
     private(set) static var last = "launched"
 

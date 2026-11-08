@@ -558,3 +558,38 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
     }
 }
+
+#if DEBUG
+extension ReaderView {
+    /// The live state of the reader as one line, for the debugger and the breadcrumb trail.
+    ///
+    /// Debug builds only: a release build does not compile this. Everything here is read-only — it
+    /// exists to answer "where does the reader think it is?" while the page refuses to move.
+    func debugState() -> String {
+        func n(_ v: CGFloat) -> String { String(format: "%.1f", v) }
+        let pan: String
+        switch panGestureRecognizer.state {
+        case .possible: pan = "possible"
+        case .began: pan = "began"
+        case .changed: pan = "changed"
+        case .ended: pan = "ended"
+        case .cancelled: pan = "cancelled"
+        case .failed: pan = "failed"
+        @unknown default: pan = "unknown"
+        }
+        let chapters = placed.map { "\($0.layout.index)@\(n($0.y))..\(n($0.maxY))" }
+            .joined(separator: ",")
+        let tileText = tiles.keys.sorted().map { key in
+            let frame = tiles[key]?.frame ?? .zero
+            return "\(key)@\(n(frame.origin.y))+\(n(frame.height))"
+        }.joined(separator: ",")
+        let jump = pendingJump.map { "\($0.chapter):\($0.verse)" } ?? "none"
+        return """
+        reader bounds=\(n(bounds.width))x\(n(bounds.height)) offset=\(n(contentOffset.y)) \
+        size=\(n(contentSize.height)) insetTop=\(n(contentInset.top)) tracking=\(isTracking) \
+        dragging=\(isDragging) decelerating=\(isDecelerating) enabled=\(isScrollEnabled) \
+        pan=\(pan) tileOrigin=\(n(tileOrigin)) placed=[\(chapters)] tiles=[\(tileText)] jump=\(jump)
+        """
+    }
+}
+#endif
