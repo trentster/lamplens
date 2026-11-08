@@ -98,6 +98,15 @@ MARKETING_VERSION = $VERSION
 CURRENT_PROJECT_VERSION = $BUILD_NUMBER
 EOF
 
+# The voice ships inside the app: fetched once per build machine, checked file by file against the
+# pins in bible-core, then copied in. Never fetched at runtime, so Read Aloud works on the first
+# launch with the phone in airplane mode.
+cargo run --quiet -p xtask -- fetch-speech
+rm -rf "$IOS/Voice"
+mkdir -p "$IOS/Voice"
+cp "$ROOT/data/speech/"* "$IOS/Voice/"
+echo "voice bundled: $(du -sh "$IOS/Voice" | cut -f1)"
+
 xcodegen generate --quiet --spec "$IOS/project.yml" --project "$IOS"
 if [[ "$FRAMEWORK_ONLY" == 1 ]]; then
   echo "$IOS/Bible.xcodeproj"

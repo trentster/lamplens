@@ -788,3 +788,26 @@ finishes, and then egui stops drawing.
 So there is no fix here and no structural change: Settings stays an immediate viewport. The refactor
 to a deferred viewport was considered and rejected on the measurement, not on effort. If a future
 change makes the panel animate or poll again, measure CPU the same way before believing it.
+
+## The voice ships inside the iPhone app, and the iPhone never goes online
+
+Read Aloud's voice was a one-off download from a GitHub release. That made the app depend on a URL, a
+public repository and a hosting service we do not control; it needed checksum and fallback plans, and
+it needed a panel explaining all of it to someone who only wanted to hear a verse. All eight pinned
+files now ship inside the iOS app instead, fetched and checked against the existing SHA-256 pins at
+build time by `xtask fetch-speech`, never at runtime.
+
+The reason is subtraction, not packaging taste. Apple hosts and delivers the voice with the app, so
+nothing breaks if the repository or the URL changes; Read Aloud works on the first launch; App Review
+has no downloaded-content question to ask; and the iOS build carries no networking code at all, which
+lets the app make a promise the Mac still cannot: **Lamplit never connects to the internet.**
+
+The cost is about 66 MB per install, which is ordinary for an app today, and Phonon-31m and the four
+voices are Apache-2.0, so bundling is allowed. What went with it: the `URLSession` download, the
+runtime digest checks, the download panel and its copy, and the two required-reason API declarations
+in `PrivacyInfo.xcprivacy` that only the download needed. The manifest now declares no collected data,
+no tracking and no required-reason APIs, which is what an app that never speaks to a server looks
+like.
+
+The Mac keeps its download for now: this round is the phone. If the Mac follows, it follows the same
+way — bundled and pinned at build time, not fetched.

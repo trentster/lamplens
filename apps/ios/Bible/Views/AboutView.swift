@@ -20,7 +20,7 @@ struct AboutView: View {
                         .font(.title3.weight(.semibold))
                     Text("Read, search and listen, entirely offline.")
                         .font(.subheadline)
-                    Text("Works offline · the reading voice downloads once, when you ask · nothing leaves this iPhone")
+                    Text("Lamplit never connects to the internet.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

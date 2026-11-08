@@ -104,7 +104,11 @@ final class BibleUITests: XCTestCase {
             app.swipeUp(velocity: .fast)
         }
         XCTAssertTrue(twelve.waitForExistence(timeout: 3), "Romans offers no chapter 12")
+        // A chapter brings its verses up, the way the Mac's picker does; the verse is what goes there.
         twelve.tap()
+        let firstVerse = app.buttons["Romans 12:1"]
+        XCTAssertTrue(firstVerse.waitForExistence(timeout: 3), "Romans 12 offers no verses")
+        firstVerse.tap()
         expectChapter("Romans 12")
         XCTAssertTrue(
             verse("Romans 12:1").label.contains("living sacrifice"),
@@ -245,15 +249,11 @@ final class BibleUITests: XCTestCase {
 
     /// John 3:16 is the most cross-referenced verse there is: the row must appear, the card must
     /// list the links, and tapping one must go there.
-    /// The picker's other way in: chapters still move you with one tap, and a book can also be
-    /// entered by verse without scrolling past its chapters.
-    func testPicksAVerseWithoutLeavingThePicker() {
+    /// The picker as the Mac has it: a chapter brings its verses up, and a verse is what goes there.
+    func testPicksAVerseFromItsChapter() {
         app.buttons["reference"].tap()
         // The picker opens with the book you are reading already expanded (John 1 on a fresh
-        // launch), so both ways in are offered without touching the row.
-        let verses = app.buttons["Verses"].firstMatch
-        XCTAssertTrue(verses.waitForExistence(timeout: 5), "a book offers no way in by verse")
-        verses.tap()
+        // launch), so its chapters are already on screen.
         let chapterThree = app.buttons["John 3"].firstMatch
         XCTAssertTrue(chapterThree.waitForExistence(timeout: 5))
         chapterThree.tap()
@@ -262,6 +262,27 @@ final class BibleUITests: XCTestCase {
         verseSixteen.tap()
         expectChapter("John 3")
         XCTAssertTrue(verse("John 3:16").waitForExistence(timeout: 5))
+    }
+
+    /// A new reader is asked two questions once, and one tap with the defaults is enough.
+    func testFirstLaunchAsksOnceAndStartsReading() {
+        app.terminate()
+        app = XCUIApplication()
+        app.launchArguments = ["--uitest", "--first-run"]
+        app.launch()
+        XCTAssertTrue(
+            app.staticTexts["Lamplit"].waitForExistence(timeout: 10),
+            "a first launch shows no welcome"
+        )
+        XCTAssertTrue(app.buttons["Start reading"].exists, "there is no way out of the first launch")
+        app.buttons["Start reading"].tap()
+        XCTAssertTrue(reference.waitForExistence(timeout: 10), "the reader never opened")
+        // And it is not asked again.
+        app.terminate()
+        app.launchArguments = ["--uitest"]
+        app.launch()
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.buttons["Start reading"].exists, "the first launch came back")
     }
 
     /// About carries the licences, from the same list the Mac shows. A CC BY work with no credit is
@@ -295,17 +316,29 @@ final class BibleUITests: XCTestCase {
 
     /// Read Aloud on a fresh install: the button opens the panel, and the panel offers the one-time
     /// download rather than trying to speak without a voice.
-    func testListenOffersTheVoiceDownloadWhenThereIsNoVoice() {
+    /// The first press of Listen asks whose voice, once, because hearing a voice is how that choice
+    /// gets made. The voice ships in the app, so nothing is downloaded and nothing is missing.
+    func testTheFirstListenAsksForAVoice() {
         app.buttons["listen"].tap()
         XCTAssertTrue(
-            app.navigationBars["Read Aloud"].waitForExistence(timeout: 5),
-            "the Listen button did not open Read Aloud's panel"
+            app.navigationBars["Choose a reading voice"].waitForExistence(timeout: 5),
+            "the first Listen should ask which voice reads"
         )
+        for row in ["Spencer", "Russell", "Freya", "Harper"] {
+            XCTAssertTrue(
+                app.buttons[row].waitForExistence(timeout: 3),
+                "\(row) is not offered"
+            )
+        }
+        XCTAssertFalse(
+            app.buttons["Download the voice"].exists,
+            "the voice ships in the app, so there is nothing to download"
+        )
+        app.buttons["chooseVoice"].tap()
         XCTAssertTrue(
-            app.buttons["Download the voice"].waitForExistence(timeout: 5),
-            "with no voice installed the panel should offer the download"
+            app.buttons["listenPause"].waitForExistence(timeout: 10),
+            "choosing a voice should start reading"
         )
-        XCTAssertFalse(app.buttons["Start reading"].exists, "Start reading should not be offered without a voice")
     }
 
     func testOpensRelatedVersesAndGoesThere() {

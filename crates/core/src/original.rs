@@ -82,18 +82,38 @@ pub fn credit() -> &'static str {
 }
 
 /// The words of one verse, or `None` when we have no original text for it.
+#[cfg(feature = "bundled")]
 pub fn verse(book: BookId, chapter: u8, verse: u8) -> Option<Verse> {
     bundled::verse(book, chapter, verse)
 }
 
+/// A build without the bundled data has no original text, which is not an error: the lookup simply
+/// does not offer the row.
+#[cfg(not(feature = "bundled"))]
+pub fn verse(_book: BookId, _chapter: u8, _verse: u8) -> Option<Verse> {
+    None
+}
+
 /// The dictionary entry behind a Strong's number, or `None` when there is no entry for it.
+#[cfg(feature = "bundled")]
 pub fn entry(strong: &str) -> Option<Entry> {
     bundled::entry(strong)
 }
 
+#[cfg(not(feature = "bundled"))]
+pub fn entry(_strong: &str) -> Option<Entry> {
+    None
+}
+
 /// Is there original text for this verse at all? A popover asks this before offering the row.
+#[cfg(feature = "bundled")]
 pub fn has(book: BookId, chapter: u8, verse: u8) -> bool {
     bundled::verse(book, chapter, verse).is_some()
+}
+
+#[cfg(not(feature = "bundled"))]
+pub fn has(_book: BookId, _chapter: u8, _verse: u8) -> bool {
+    false
 }
 
 #[cfg(feature = "bundled")]

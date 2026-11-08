@@ -1,32 +1,24 @@
 import SwiftUI
 
-/// Read Aloud's own panel: the voice, how long it reads for, and the one-time download.
+/// Read Aloud's own panel: start or stop, and which voice reads.
 ///
-/// The same eight choices as the Mac, in the same order, remembered per device. Nothing here is
-/// needed before the first press of Listen: the panel opens on the download when the voice is not
-/// there yet, and on the reading controls once it is.
+/// The timer is not here: on the Mac it is chosen from the listening bar while a reading runs, and
+/// the phone does the same. Nothing needs downloading either — the voice ships inside the app.
 struct ListenSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
-
-    @State private var progress: Double = 0
-    @State private var downloading = false
 
     private var speaker: Speaker { store.speaker }
 
     var body: some View {
         NavigationStack {
             List {
-                if !speaker.installed || downloading {
-                    downloadSection
-                } else {
-                    readSection
-                    voiceSection
-                    timerSection
-                }
+                readSection
+                voiceSection
             }
             .navigationTitle("Read Aloud")
             .navigationBarTitleDisplayMode(.inline)
+            .onDisappear { speaker.stopAudition() }
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
@@ -36,36 +28,6 @@ struct ListenSheet: View {
     }
 
     // MARK: - Sections
-
-    private var downloadSection: some View {
-        Section {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("The reading voice downloads once, when you ask.")
-                    .font(.subheadline)
-                Text("About 66 MB. Nothing else in Lamplit ever uses the internet.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                if downloading {
-                    ProgressView(value: progress) {
-                        Text("\(Int(progress * 100))%")
-                            .font(.caption.monospacedDigit())
-                    }
-                } else {
-                    Button {
-                        Task { await download() }
-                    } label: {
-                        Label("Download the voice", systemImage: "arrow.down.circle")
-                    }
-                }
-                if case .failed(let why) = speaker.phase {
-                    Text(why).font(.footnote).foregroundStyle(.red)
-                }
-            }
-            .padding(.vertical, 4)
-        } footer: {
-            Text("The voice is fetched from the project's own release page and checked, file by file, on the way in.")
-        }
-    }
 
     private var readSection: some View {
         Section {
@@ -87,51 +49,54 @@ struct ListenSheet: View {
     }
 
     private var voiceSection: some View {
-        Section("Voice") {
+        Section {
             ForEach(speaker.offered, id: \.name) { voice in
-                Button {
-                    speaker.voice = voice.name
-                } label: {
-                    HStack {
+                HStack(spacing: 12) {
+                    Button {
+                        speaker.voice = voice.name
+                        speaker.hasChosenVoice = true
+                    } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(voice.name)
                             Text("\(voice.accent) · \(voice.female ? "female" : "male") · \(voice.nativeWpm) wpm")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        if speaker.voice == voice.name {
-                            Image(systemName: "checkmark")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("\(voice.name), \(voice.accent), \(voice.female ? "female" : "male")")
+                    .accessibilityValue(speaker.voice == voice.name ? "Selected" : "")
+                    .accessibilityAddTraits(speaker.voice == voice.name ? [.isButton, .isSelected] : .isButton)
+
+                    if speaker.voice == voice.name {
+                        Image(systemName: "checkmark")
+                            .font(.body.weight(.semibold))
+                            .foregroundStyle(.tint)
+                            .accessibilityHidden(true)
+                    }
+
+                    // Hearing a voice is how it gets chosen, so every row can say its sample.
+                    Button {
+                        speaker.audition(voice.name)
+                    } label: {
+                        if speaker.auditioning == voice.name {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "play.circle")
+                                .font(.title3)
+                                .foregroundStyle(.tint)
                         }
                     }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel("Hear \(voice.name)")
                 }
             }
-        }
-    }
-
-    private var timerSection: some View {
-        Section {
-            Picker("Read for", selection: Binding(
-                get: { speaker.stopAfter },
-                set: { speaker.stopAfter = $0 }
-            )) {
-                ForEach(Speaker.Stop.allCases) { choice in
-                    Text(choice.title).tag(choice)
-                }
-            }
+        } header: {
+            Text("Voice")
         } footer: {
-            Text("A reading that runs out of time finishes the sentence it is in, then stops.")
+            Text("Tap a play button to hear a verse in that voice.")
         }
-    }
-
-    // MARK: - Downloading
-
-    private func download() async {
-        downloading = true
-        progress = 0
-        await speaker.download { done in
-            progress = done
-        }
-        downloading = false
     }
 }

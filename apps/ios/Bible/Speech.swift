@@ -8,9 +8,9 @@ import Observation
 ///
 /// The words, the trimming, the pace and the gaps all come from the shared engine in `bible-core`,
 /// so the phone and the Mac say the same thing the same way. What is the phone's own is the two
-/// pieces that cannot be shared: the voice is fetched with Apple's `URLSession` rather than the
-/// Mac's `ureq`, so the iOS build carries no encryption code of its own, and the samples are played
-/// with Apple's audio stack rather than CoreAudio directly.
+/// pieces that cannot be shared: the voice ships inside the app rather than being fetched, so this
+/// build carries no networking code at all, and the samples are played with Apple's audio stack
+/// rather than CoreAudio directly.
 ///
 /// One rule from the Mac carries over exactly: the voice follows the page. Anything that moves the
 /// reader stops the reading.
@@ -53,7 +53,6 @@ final class Speaker {
 
     enum Phase: Equatable {
         case off
-        case downloading(Double)
         case preparing
         case reading
         case paused
@@ -63,12 +62,15 @@ final class Speaker {
     }
 
     private(set) var phase: Phase = .off
+    /// Milliseconds from asking to read to the first word being scheduled; nil until a reading runs.
+    private(set) var firstAudioMs: Double?
+    @ObservationIgnored private var askedAt: CFAbsoluteTime?
     /// The verse being said right now, so the page can follow it.
     private(set) var speaking: UInt8?
     /// The chapter the reading is in, which may not be the one on screen once it carries on.
     private(set) var chapter: Int?
 
-    var voice: String = UserDefaults.standard.string(forKey: "readAloudVoice") ?? "Russell" {
+    var voice: String = UserDefaults.standard.string(forKey: "readAloudVoice") ?? "Spencer" {
         didSet { UserDefaults.standard.set(voice, forKey: "readAloudVoice") }
     }
 
@@ -91,13 +93,21 @@ final class Speaker {
     /// Fetches a chapter's utterances and says where it is, so Keep reading can walk on.
     private var provider: ((Int, Int?) -> (verses: [SpokenUtterance], chapter: Int))?
 
-    /// Where an installed voice lives: the app's own container.
-    static var directory: URL {
-        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("speech", isDirectory: true)
+    /// Where the voice is: shipped in the app bundle, so Read Aloud works on the first launch with
+    /// no network at all. The files are fetched and checked against their pins at build time.
+    static var directory: URL? {
+        Bundle.main.url(forResource: "Voice", withExtension: nil)
     }
 
-    var installed: Bool { voiceComplete(dir: Self.directory.path) }
+    var installed: Bool { Self.directory != nil }
+
+    /// Whether a voice has been picked, here or in Settings. Until it has, the first press of Listen
+    /// asks once: hearing a voice is how this choice gets made, and it is a bad question to ask of
+    /// someone who never listens.
+    var hasChosenVoice: Bool {
+        get { UserDefaults.standard.bool(forKey: "readAloudVoiceChosen") }
+        set { UserDefaults.standard.set(newValue, forKey: "readAloudVoiceChosen") }
+    }
 
     /// The voices offered, with the name a reader should see.
     var offered: [VoiceInfo] { voices() }
@@ -119,10 +129,18 @@ final class Speaker {
         chapter = first.chapter
         utterances = first.verses
         next = 0
+        askedAt = CFAbsoluteTimeGetCurrent()
+        firstAudioMs = nil
         deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
         phase = .preparing
         work?.cancel()
         work = Task { await run() }
+    }
+
+    /// What is left on the timer, straight off the clock, or nil when no clock is armed.
+    var remaining: TimeInterval? {
+        guard let deadline else { return nil }
+        return max(0, deadline.timeIntervalSinceNow)
     }
 
     func pause() {
@@ -156,6 +174,64 @@ final class Speaker {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }
 
+    // MARK: - Audition
+
+    /// The words the Mac auditions voices with, word for word, so the two agree on what a voice
+    /// sounds like.
+    static let auditionText = "In the beginning God created the heaven and the earth."
+
+    /// The voice being made ready right now, so its row can show that it is working.
+    private(set) var auditioning: String?
+
+    /// Samples are kept for the session: the first press of each voice costs a second, the rest are
+    /// instant, and a reader comparing four voices does not wait four times.
+    @ObservationIgnored private var auditions: [String: [Float]] = [:]
+    @ObservationIgnored private var auditionWork: Task<Void, Never>?
+
+    /// Says the sample in one voice, so a voice can be chosen by ear rather than by its label.
+    ///
+    /// A reading in progress stops first: two voices at once is not a choice anyone can make. The
+    /// reading's own place on the page is untouched, so it can be started again from there.
+    func audition(_ name: String) {
+        stop()
+        auditionWork?.cancel()
+        auditioning = name
+        auditionWork = Task { @MainActor in
+            defer { if auditioning == name { auditioning = nil } }
+            do {
+                let pcm = try await auditionSamples(name)
+                guard auditioning == name, !Task.isCancelled else { return }
+                try prepareAudio()
+                await play(pcm)
+            } catch {
+                phase = .failed("\(error)")
+            }
+            if phase == .preparing { phase = .off }
+        }
+    }
+
+    /// Stops the sample, for a panel closing under it.
+    func stopAudition() {
+        guard auditioning != nil || phase == .preparing else { return }
+        auditionWork?.cancel()
+        auditionWork = nil
+        auditioning = nil
+        player?.stop()
+        engine?.stop()
+        engine = nil
+        player = nil
+        format = nil
+        phase = .off
+    }
+
+    private func auditionSamples(_ name: String) async throws -> [Float] {
+        if let kept = auditions[name] { return kept }
+        guard let synth = await openVoice() else { throw SpeakerError.noVoice }
+        let pcm = try await makeSamples(Self.auditionText, voice: name, synth: synth).value
+        auditions[name] = pcm
+        return pcm
+    }
+
     // MARK: - The loop
 
     private func run() async {
@@ -185,6 +261,10 @@ final class Speaker {
             guard !Task.isCancelled else { return }
             phase = .reading
             updateNowPlaying()
+            if let asked = askedAt, firstAudioMs == nil {
+                let ms = (CFAbsoluteTimeGetCurrent() - asked) * 1000
+                record(firstAudio: ms)
+            }
             await play(pcm)
             if utterance.pauseMs > 0, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(utterance.pauseMs) * 1_000_000)
@@ -212,9 +292,23 @@ final class Speaker {
         stop()
     }
 
+    /// Leaves the measurement where the build machine can read it off the phone: nobody can see a
+    /// stopwatch in someone's pocket, and a claim about speed has to come from somewhere real.
+    private func record(firstAudio ms: Double) {
+        firstAudioMs = ms
+        let dir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let text = String(format: "first audio %.0f ms after Listen, voice bundled\n", ms)
+        try? text.write(to: dir.appendingPathComponent("listen-timing.txt"), atomically: true, encoding: .utf8)
+    }
+
     private func makeSamples(_ text: String, synth: Synth) -> Task<[Float], Error> {
-        let voice = voice
-        return Task.detached(priority: .userInitiated) { try synth.say(text, voice) }
+        makeSamples(text, voice: voice, synth: synth)
+    }
+
+    /// The same, in whichever voice is asked for — how a sample is made for a voice that is not the
+    /// one currently chosen.
+    private func makeSamples(_ text: String, voice name: String, synth: Synth) -> Task<[Float], Error> {
+        Task.detached(priority: .userInitiated) { try synth.say(text, name) }
     }
 
     /// Opens the model once and keeps it for the session.
@@ -228,8 +322,8 @@ final class Speaker {
             return nil
         }
         do {
+            guard let path = Self.directory?.path else { throw SpeakerError.noVoice }
             // Read the path here: `directory` is main-actor state and the model opens off it.
-            let path = Self.directory.path
             let made = try await Task.detached(priority: .userInitiated) {
                 Synth(try Speech.load(dir: path))
             }.value
@@ -353,49 +447,6 @@ final class Speaker {
             player.scheduleBuffer(buffer) { done.resume() }
         }
     }
-
-    // MARK: - The voice download
-
-    /// Fetches the voice through `URLSession`, checking every file against its pinned digest before
-    /// it is kept. One file at a time, so progress is honest on a slow line.
-    func download(progress: @escaping @MainActor (Double) -> Void) async {
-        let files = voiceFiles()
-        let base = voiceBundleUrl()
-        phase = .downloading(0)
-        let manager = FileManager.default
-        do {
-            try manager.createDirectory(at: Self.directory, withIntermediateDirectories: true)
-            var done = 0.0
-            for file in files {
-                let dest = Self.directory.appendingPathComponent(file.name)
-                if manager.fileExists(atPath: dest.path), (try? Self.digest(of: dest)) == file.sha256 {
-                    done += 1
-                    progress(done / Double(files.count))
-                    continue
-                }
-                guard let url = URL(string: "\(base)/\(file.name)") else { throw SpeakerError.badURL }
-                let (tmp, response) = try await URLSession.shared.download(from: url)
-                if let http = response as? HTTPURLResponse, http.statusCode != 200 {
-                    throw SpeakerError.badResponse(file.name, http.statusCode)
-                }
-                guard try Self.digest(of: tmp) == file.sha256 else {
-                    throw SpeakerError.wrongDigest(file.name)
-                }
-                try? manager.removeItem(at: dest)
-                try manager.moveItem(at: tmp, to: dest)
-                done += 1
-                progress(done / Double(files.count))
-            }
-            phase = .off
-        } catch {
-            phase = .failed("the voice could not be downloaded: \(error)")
-        }
-    }
-
-    static func digest(of url: URL) throws -> String {
-        let data = try Data(contentsOf: url, options: .mappedIfSafe)
-        return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
 }
 
 /// The engine object, handed to a background task. `Speech` wraps a lock of its own, so a single
@@ -418,16 +469,12 @@ private final class Synth: @unchecked Sendable {
 
 enum SpeakerError: LocalizedError {
     case noFormat
-    case badURL
-    case badResponse(String, Int)
-    case wrongDigest(String)
+    case noVoice
 
     var errorDescription: String? {
         switch self {
         case .noFormat: "the speaker could not be set up"
-        case .badURL: "the voice's address is wrong"
-        case .badResponse(let name, let code): "\(name) came back as \(code)"
-        case .wrongDigest(let name): "\(name) arrived damaged"
+        case .noVoice: "the voice could not be opened"
         }
     }
 }

@@ -15,6 +15,9 @@ struct ReaderSettings: Codable, Equatable {
     var versePerLine = false
     var headings = true
     var wholeWords = false
+    /// False until the first-launch screen has been answered. Saved with the rest, so it is asked
+    /// once and never again; everything it sets stays changeable in Settings.
+    var didFirstRun = false
 
     static let textSizes: ClosedRange<Double> = 14...32
     static let lineSpacings: ClosedRange<Double> = 1.3...2.0
@@ -37,6 +40,7 @@ struct ReaderSettings: Codable, Equatable {
         versePerLine = value(.versePerLine, d.versePerLine)
         headings = value(.headings, d.headings)
         wholeWords = value(.wholeWords, d.wholeWords)
+        didFirstRun = value(.didFirstRun, d.didFirstRun)
     }
 }
 
@@ -60,7 +64,7 @@ struct JumpRequest: Equatable {
 }
 
 enum Sheet: Identifiable, Equatable {
-    case books, search, settings, study, related, words, listen
+    case books, search, settings, study, related, words, listen, voiceChooser
     case note(VerseRef)
 
     var id: String {
@@ -72,6 +76,7 @@ enum Sheet: Identifiable, Equatable {
         case .related: "related"
         case .words: "words"
         case .listen: "listen"
+        case .voiceChooser: "voiceChooser"
         case .note(let v): "note-\(v.book)-\(v.chapter)-\(v.verse)"
         }
     }
@@ -121,6 +126,13 @@ final class Store {
         }
         if !translations.contains(where: { $0.id == settings.translation }) {
             settings.translation = translations.first?.id ?? "kjv"
+        }
+        // A test run starts at the reader, because every test but one is about the page. The test
+        // that asks for the first launch says so, and gets the questions back even though a
+        // container from an earlier run has the answer saved.
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--uitest") {
+            settings.didFirstRun = !arguments.contains("--first-run")
         }
         self.bible = bible
         self.bookList = bookList
@@ -340,10 +352,16 @@ final class Store {
             speaker.stop()
             return
         }
-        guard speaker.installed else {
-            sheet = .listen
+        // A reader who has never chosen a voice is asked once, at the moment they want to listen.
+        guard speaker.hasChosenVoice else {
+            sheet = .voiceChooser
             return
         }
+        startReading()
+    }
+
+    /// Starts at the verse at the reading line, with the voice that has been chosen.
+    func startReading() {
         speaker.chapterTitle = { chapter in chapterLabel(index: UInt16(clamping: chapter)) }
         // The voice follows the page: it starts at the verse at the reading line, not the top.
         speaker.start(chapterIndex: position.chapter, fromVerse: Int(position.verse)) { [weak self] index, from in

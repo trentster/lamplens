@@ -21,7 +21,7 @@ use crate::BibleError;
 /// One of the voices that ships with the model.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct VoiceInfo {
-    /// The name the model knows it by: "russell", "harper".
+    /// The name the model knows it by, as `voices()` reports it: "Russell", "Harper".
     pub name: String,
     /// "Russell" — the name as a reader should see it.
     pub label: String,

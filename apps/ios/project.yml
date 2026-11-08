@@ -25,6 +25,11 @@ targets:
     sources:
       - path: Bible
       - path: Generated/BibleFFI.swift
+      # The reading voice ships inside the app, so Read Aloud needs no network and nothing can go
+      # stale. Staged and checksummed by scripts/build-ios.sh before the project is generated.
+      - path: Voice
+        type: folder
+        buildPhase: resources
       # The Mac app's fonts, shared rather than copied.
       - path: ../../crates/app/assets/fonts/Literata.ttf
         buildPhase: resources

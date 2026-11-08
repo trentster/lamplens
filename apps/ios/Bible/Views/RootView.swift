@@ -46,6 +46,10 @@ struct RootView: View {
                             .glass(in: Capsule(), theme: theme, interactive: false)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
+                    if store.speaker.phase.isOn, !store.barsHidden {
+                        ListeningBar(theme: theme)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
                     if store.selection != nil {
                         SelectionBar(theme: theme)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -72,12 +76,23 @@ struct RootView: View {
                 case .related: RelatedSheet(ref: verseAnchor, theme: theme)
                 case .words: WordsSheet(ref: verseAnchor, theme: theme)
                 case .listen: ListenSheet()
+                case .voiceChooser: VoiceChooserSheet()
                 case .note(let ref): NoteEditor(ref: ref, theme: theme)
                 }
             }
             .environment(store)
             .sheetChrome(theme)
         }
+        // A first launch is asked once, on its own, before the page is reachable at all. The binding
+        // writes the answer back through the settings the reader already saves.
+        .fullScreenCover(isPresented: firstRun) { FirstRunView().environment(store) }
+    }
+
+    private var firstRun: Binding<Bool> {
+        Binding(
+            get: { !store.settings.didFirstRun },
+            set: { showing in if !showing { store.settings.didFirstRun = true } }
+        )
     }
 
     /// The verse a look-up sheet speaks about: the one tapped, or where the page is standing.

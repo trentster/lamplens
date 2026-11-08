@@ -6,6 +6,7 @@ pub mod bundled;
 pub mod content;
 pub mod copy;
 pub mod credits;
+pub mod voice_copy;
 pub mod format;
 pub mod highlight;
 #[cfg(feature = "import")]

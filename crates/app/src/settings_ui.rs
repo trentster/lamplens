@@ -1324,29 +1324,48 @@ fn voice_setup(ui: &mut Ui, p: &Palette) {
     ui.painter().rect_stroke(card, 12.0, Stroke::new(1.0, p.border), egui::StrokeKind::Inside);
 
     let inner = card.shrink2(vec2(16.0, 14.0));
-    ui.painter().text(
-        pos2(inner.left(), inner.center().y - 17.0),
-        Align2::LEFT_CENTER,
-        "The voice is not on this machine yet",
-        text::UI_STRONG.font(),
-        p.ink,
-    );
-    let note = match &status {
-        Status::Failed(why) => format!("That did not finish: {why}"),
-        Status::Fetching { .. } => {
-            "Fetching the voice. Reading never uses a connection after this.".to_string()
-        }
-        _ => "Sixty-three megabytes, fetched once. After that, reading never uses a connection.".to_string(),
-    };
-    let mut job = LayoutJob::simple(
-        note,
-        text::SMALL.font(),
-        if failed { p.accent } else { p.ink_2 },
-        inner.width() - 170.0,
-    );
-    job.sections[0].format.line_height = Some(16.0);
-    let galley = ui.painter().layout_job(job);
-    ui.painter().galley(pos2(inner.left(), inner.center().y + 1.0), galley, p.ink_2);
+    // Two lines, each one fact, from `bible_core::voice_copy` — the same words the phone shows, so
+    // the promise is written once. Fetching and failure keep their own live wording.
+    if matches!(status, Status::Missing) {
+        let wrap = inner.width() - 170.0;
+        let mut main = LayoutJob::simple(
+            bible_core::voice_copy::VOICE_DOWNLOAD_MAIN.to_string(),
+            text::UI_STRONG.font(),
+            p.ink,
+            wrap,
+        );
+        main.sections[0].format.line_height = Some(17.0);
+        let mut second = LayoutJob::simple(
+            bible_core::voice_copy::VOICE_DOWNLOAD_SECOND.to_string(),
+            text::SMALL.font(),
+            p.ink_2,
+            wrap,
+        );
+        second.sections[0].format.line_height = Some(16.0);
+        let main = ui.painter().layout_job(main);
+        let second = ui.painter().layout_job(second);
+        let block = main.size().y + 2.0 + second.size().y;
+        let top = inner.center().y - block / 2.0;
+        ui.painter().galley(pos2(inner.left(), top), main.clone(), p.ink);
+        ui.painter().galley(pos2(inner.left(), top + main.size().y + 2.0), second, p.ink_2);
+    } else {
+        let note = match &status {
+            Status::Failed(why) => format!("That did not finish: {why}"),
+            Status::Fetching { .. } => {
+                "Fetching the voice. Reading never uses a connection after this.".to_string()
+            }
+            _ => String::new(),
+        };
+        let mut job = LayoutJob::simple(
+            note,
+            text::SMALL.font(),
+            if failed { p.accent } else { p.ink_2 },
+            inner.width() - 170.0,
+        );
+        job.sections[0].format.line_height = Some(16.0);
+        let galley = ui.painter().layout_job(job);
+        ui.painter().galley(pos2(inner.left(), inner.center().y + 1.0), galley, p.ink_2);
+    }
 
     // Progress or the button, in the same place on the right, so one does not move the other.
     if let Status::Fetching { done, of } = status {

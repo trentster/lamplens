@@ -7,8 +7,8 @@ struct BookPicker: View {
     let theme: Theme
     @State private var query = ""
     @State private var open: UInt8?
-    /// Whether a book is entered by chapter or by verse, and which chapter's verses are showing.
-    @State private var byVerse = false
+    /// Which chapter's verses are showing under a book's grid. Choosing one is not going there: it
+    /// is what brings its verses up, so a verse can be chosen. The same as the Mac's picker.
     @State private var verseChapter: Int?
 
     var body: some View {
@@ -73,11 +73,7 @@ struct BookPicker: View {
     private func row(_ book: BookInfo) -> some View {
         let current = store.book(of: store.position.chapter).index == book.index
         Button {
-            if book.chapters == 1 {
-                go(chapter: Int(book.firstChapter))
-            } else {
-                withAnimation(.smooth(duration: 0.25)) { open = open == book.index ? nil : book.index }
-            }
+            withAnimation(.smooth(duration: 0.25)) { open = open == book.index ? nil : book.index }
         } label: {
             HStack {
                 Text(book.name)
@@ -96,45 +92,10 @@ struct BookPicker: View {
             }
             .contentShape(Rectangle())
         }
-        .accessibilityHint(book.chapters == 1 ? "Opens the book" : "Shows its chapters")
-        if open == book.index && book.chapters > 1 {
-            Picker("Way in", selection: $byVerse) {
-                Text("Chapters").tag(false)
-                Text("Verses").tag(true)
-            }
-            .pickerStyle(.segmented)
-            .padding(.vertical, 6)
-            if byVerse {
-                verseWay(book)
-            } else {
-                chapters(book)
-            }
+        .accessibilityHint("Shows its chapters and their verses")
+        if open == book.index {
+            verseWay(book)
         }
-    }
-
-    private func chapters(_ book: BookInfo) -> some View {
-        let currentChapter = store.position.chapter
-        return LazyVGrid(columns: [GridItem(.adaptive(minimum: 48), spacing: 8)], spacing: 8) {
-            ForEach(1...Int(book.chapters), id: \.self) { n in
-                let index = Int(book.firstChapter) + n - 1
-                let current = index == currentChapter
-                Button {
-                    go(chapter: index)
-                } label: {
-                    Text("\(n)")
-                        .font(.body.monospacedDigit().weight(current ? .semibold : .regular))
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                        .foregroundStyle(current ? Color(theme.onAccent) : Color(theme.ink))
-                        .background(
-                            current ? Color(theme.accent) : Color(theme.fill),
-                            in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(book.name) \(n)")
-            }
-        }
-        .padding(.vertical, 6)
-
     }
 
     /// Choosing a verse: the book's chapters across the top, the chosen chapter's verses below.
@@ -142,7 +103,10 @@ struct BookPicker: View {
     private func verseWay(_ book: BookInfo) -> some View {
         // Start on the chapter the reader is looking at, when it is in this book; else its first.
         let here = store.position.chapter
-        let chapter = verseChapter ?? (store.book(of: here).index == book.index ? here : Int(book.firstChapter))
+        let first = Int(book.firstChapter)
+        let last = first + Int(book.chapters) - 1
+        let chosen = verseChapter.flatMap { (first...last).contains($0) ? $0 : nil }
+        let chapter = chosen ?? (store.book(of: here).index == book.index ? here : first)
         return VStack(alignment: .leading, spacing: 8) {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 6)], spacing: 6) {
                 ForEach(1...Int(book.chapters), id: \.self) { n in

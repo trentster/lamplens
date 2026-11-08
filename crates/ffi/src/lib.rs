@@ -21,6 +21,7 @@ use bible_core::{BookId, ChapterIdx};
 
 pub mod content;
 pub mod credits;
+pub mod voice_copy;
 pub mod links;
 pub mod speech;
 pub mod tokens;

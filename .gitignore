@@ -9,3 +9,4 @@
 
 # STEPBible source texts downloaded by scripts/build-original.py (97 MB, never committed)
 /.cache/
+/apps/ios/Voice
