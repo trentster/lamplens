@@ -34,15 +34,26 @@ enum ReaderStateDebug {
         return parts.joined(separator: " | ")
     }
 
-    /// Writes the same snapshot into the breadcrumb trail once a second while a reading is running,
-    /// so a freeze caught in the act shows the reader's own idea of where it is, not just the last
-    /// call that was made.
+    /// Writes the same snapshot into the breadcrumb trail once a second while the reader is being
+    /// scrolled, and for a few seconds after it stops, so a freeze caught in the act shows the
+    /// reader's own idea of where it is, not just the last call that was made.
+    ///
+    /// The freeze happens with Read Aloud off, so this follows the scrolling and not the voice.
     @MainActor
-    static func followReadingIntoBreadcrumbs() async {
+    static func followTheReaderIntoBreadcrumbs() async {
+        var quietTicks = 0
         while !Task.isCancelled {
             try? await Task.sleep(for: .seconds(1))
-            guard Breadcrumbs.isOn, store?.speaker.phase.isOn == true else { continue }
-            Breadcrumbs.mark(snapshot())
+            guard Breadcrumbs.isOn else { continue }
+            let scrolling = reader.map { $0.isTracking || $0.isDragging || $0.isDecelerating } ?? false
+            if scrolling {
+                quietTicks = 0
+                Breadcrumbs.mark(snapshot())
+            } else if quietTicks < 4 {
+                // The moment the scroll stops is the interesting one, so keep recording briefly.
+                quietTicks += 1
+                Breadcrumbs.mark("settled " + snapshot())
+            }
         }
     }
 }

@@ -10,7 +10,7 @@ struct BibleApp: App {
             RootView()
                 .task { Breadcrumbs.startIfAsked() }
                 #if DEBUG
-                    .task { await ReaderStateDebug.followReadingIntoBreadcrumbs() }
+                    .task { await ReaderStateDebug.followTheReaderIntoBreadcrumbs() }
                 #endif
                 .environment(store)
                 .task {

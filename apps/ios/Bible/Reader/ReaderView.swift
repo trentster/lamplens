@@ -89,6 +89,11 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
 
     private let tileHeight: CGFloat = 256
     private var tileOrigin: CGFloat = 0
+    #if DEBUG
+        /// Layout passes and refused shifts, so the trail shows churn rather than guessing at it.
+        private(set) var fillPasses = 0
+        private(set) var shiftRefusals = 0
+    #endif
     private var tiles: [Int: Tile] = [:]
     private var spareTiles: [Tile] = []
 
@@ -278,6 +283,9 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         let ahead = height * 1.5
         let keep = height * 4
         var changed = false
+        #if DEBUG
+            fillPasses += 1
+        #endif
 
         while let last = placed.last, last.maxY < contentOffset.y + height + ahead,
             last.layout.index + 1 < Self.chapterCount
@@ -287,7 +295,14 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         }
         while let first = placed.first, first.y > contentOffset.y - ahead, first.layout.index > 0 {
             let layout = typeset(first.layout.index - 1, style)
-            guard shift(by: layout.height) else { break }
+            guard shift(by: layout.height) else {
+                #if DEBUG
+                    // The prefetched layout has already been taken out of `ahead` by typeset(), so a
+                    // refusal here costs a synchronous re-typeset on the next layout pass.
+                    shiftRefusals += 1
+                #endif
+                break
+            }
             placed.insert(Placed(layout: layout, y: 0), at: 0)
             changed = true
         }
@@ -588,7 +603,8 @@ extension ReaderView {
         reader bounds=\(n(bounds.width))x\(n(bounds.height)) offset=\(n(contentOffset.y)) \
         size=\(n(contentSize.height)) insetTop=\(n(contentInset.top)) tracking=\(isTracking) \
         dragging=\(isDragging) decelerating=\(isDecelerating) enabled=\(isScrollEnabled) \
-        pan=\(pan) tileOrigin=\(n(tileOrigin)) placed=[\(chapters)] tiles=[\(tileText)] jump=\(jump)
+        pan=\(pan) tileOrigin=\(n(tileOrigin)) placed=[\(chapters)] tiles=[\(tileText)] jump=\(jump) \
+        fillPasses=\(fillPasses) refusedShifts=\(shiftRefusals) ahead=\(ahead.keys.sorted())
         """
     }
 }
