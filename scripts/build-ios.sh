@@ -110,7 +110,9 @@ XCODEBUILD=(xcodebuild -quiet -project "$IOS/Bible.xcodeproj" -scheme Bible
   -configuration "$CONFIGURATION" -derivedDataPath "$DERIVED")
 if [[ "$DEVICE" == 1 ]]; then
   if grep -qs '^ *DEVELOPMENT_TEAM *= *[A-Z0-9]' "$IOS/Config/Local.xcconfig"; then
-    "${XCODEBUILD[@]}" -destination "generic/platform=iOS" build
+    # -allowProvisioningUpdates lets xcodebuild create the development certificate and profile
+    # from the signed-in account, which Xcode's UI does for you but the command line does not.
+    "${XCODEBUILD[@]}" -destination "generic/platform=iOS" -allowProvisioningUpdates build
   else
     echo "No DEVELOPMENT_TEAM in $IOS/Config/Local.xcconfig: building unsigned" >&2
     "${XCODEBUILD[@]}" -destination "generic/platform=iOS" CODE_SIGNING_ALLOWED=NO build
