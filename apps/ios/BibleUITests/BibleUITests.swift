@@ -227,9 +227,19 @@ final class BibleUITests: XCTestCase {
 
     func testThemeAndTextSizeApplyAtOnce() {
         app.buttons["settings"].tap()
-        app.buttons["Dark theme"].tap()
+        // Settings follows the Mac's order, so Appearance sits below Reading and a Form does not
+        // build rows that are still below the fold: scroll to it the way a reader would.
+        let dark = app.buttons["Dark theme"]
+        for _ in 0..<4 where !dark.exists {
+            app.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(dark.waitForExistence(timeout: 5), "Settings offers no appearance swatches")
+        dark.tap()
         let slider = app.sliders["Text size"]
-        XCTAssertTrue(slider.waitForExistence(timeout: 3))
+        for _ in 0..<4 where !slider.exists {
+            app.swipeDown(velocity: .fast)
+        }
+        XCTAssertTrue(slider.waitForExistence(timeout: 3), "Settings offers no text size")
         slider.adjust(toNormalizedSliderPosition: 0.9)
         app.buttons["Done"].tap()
         XCTAssertTrue(verse("John 1:1").exists)
@@ -319,6 +329,11 @@ final class BibleUITests: XCTestCase {
     /// The first press of Listen asks whose voice, once, because hearing a voice is how that choice
     /// gets made. The voice ships in the app, so nothing is downloaded and nothing is missing.
     func testTheFirstListenAsksForAVoice() {
+        app.terminate()
+        app.launchArguments = ["--uitest", "--first-listen"]
+        app.launch()
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+
         app.buttons["listen"].tap()
         XCTAssertTrue(
             app.navigationBars["Choose a reading voice"].waitForExistence(timeout: 5),
@@ -339,6 +354,37 @@ final class BibleUITests: XCTestCase {
             app.buttons["listenPause"].waitForExistence(timeout: 10),
             "choosing a voice should start reading"
         )
+    }
+
+    /// A timer chosen while the reading is already running has to start then: the bar used to show
+    /// the choice with no clock, because only starting a reading ever set the deadline.
+    func testChoosingATimerWhileListeningStartsTheClock() {
+        app.buttons["listen"].tap()
+        if app.buttons["chooseVoice"].waitForExistence(timeout: 3) {
+            app.buttons["chooseVoice"].tap()
+        }
+        let timer = app.buttons["listenTimer"]
+        XCTAssertTrue(timer.waitForExistence(timeout: 10), "no listening bar to time")
+        timer.tap()
+        let five = app.buttons["timer-fiveMinutes"]
+        XCTAssertTrue(five.waitForExistence(timeout: 5), "the timer rows are not offered")
+        five.tap()
+
+        let first = (timer.value as? String) ?? ""
+        XCTAssertTrue(first.contains(":"), "the bar shows \"\(first)\" instead of a countdown")
+        sleep(3)
+        XCTAssertNotEqual((timer.value as? String) ?? "", first, "the countdown is not moving")
+
+        // Paused, the clock waits with the voice: time spent not listening is not time spent on the
+        // timer, which is how the Mac behaves.
+        app.buttons["listenPause"].tap()
+        sleep(3)
+        let frozen = (timer.value as? String) ?? ""
+        sleep(3)
+        XCTAssertEqual((timer.value as? String) ?? "", frozen, "the clock kept running while paused")
+        app.buttons["listenPause"].tap()
+        sleep(2)
+        XCTAssertNotEqual((timer.value as? String) ?? "", frozen, "the clock did not resume")
     }
 
     func testOpensRelatedVersesAndGoesThere() {

@@ -64,7 +64,7 @@ struct JumpRequest: Equatable {
 }
 
 enum Sheet: Identifiable, Equatable {
-    case books, search, settings, study, related, words, listen, voiceChooser
+    case books, search, settings, study, related, words, voiceChooser
     case note(VerseRef)
 
     var id: String {
@@ -75,7 +75,6 @@ enum Sheet: Identifiable, Equatable {
         case .study: "study"
         case .related: "related"
         case .words: "words"
-        case .listen: "listen"
         case .voiceChooser: "voiceChooser"
         case .note(let v): "note-\(v.book)-\(v.chapter)-\(v.verse)"
         }

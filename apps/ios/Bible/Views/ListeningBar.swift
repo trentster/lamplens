@@ -131,6 +131,7 @@ struct ListeningBar: View {
                         .contentShape(Rectangle())
                     }
                     .accessibilityValue(choice == speaker.stopAfter ? "Selected" : "")
+                    .accessibilityIdentifier("timer-\(choice.rawValue)")
                 }
             }
             .navigationTitle("Stop after")

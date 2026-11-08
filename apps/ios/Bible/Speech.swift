@@ -75,7 +75,15 @@ final class Speaker {
     }
 
     var stopAfter: Stop = Stop(rawValue: UserDefaults.standard.string(forKey: "readAloudStop") ?? "") ?? .endOfChapter {
-        didSet { UserDefaults.standard.set(stopAfter.rawValue, forKey: "readAloudStop") }
+        didSet {
+            UserDefaults.standard.set(stopAfter.rawValue, forKey: "readAloudStop")
+            // A timer chosen while the reading is already running starts from now. Without this the
+            // bar showed the choice and no clock, because only `start()` ever set the deadline.
+            if phase.isOn, stopAfter != oldValue {
+                held = nil
+        deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
+            }
+        }
     }
 
     private var engine: AVAudioEngine?
@@ -86,6 +94,10 @@ final class Speaker {
     private var utterances: [SpokenUtterance] = []
     private var next = 0
     private var deadline: Date?
+    /// Time left on the sleep timer when the reading was paused. The Mac holds the clock with the
+    /// voice and puts the deadline back when play resumes; wall-clock time spent paused is not time
+    /// spent listening, so a fifteen-minute timer must still leave fifteen minutes.
+    private var held: TimeInterval?
     /// Names the chapter for the lock screen: "John 3".
     var chapterTitle: ((Int) -> String)?
     /// Whether a reading was under way when a call or another app took the audio, so it can resume.
@@ -109,6 +121,16 @@ final class Speaker {
         set { UserDefaults.standard.set(newValue, forKey: "readAloudVoiceChosen") }
     }
 
+    /// A UI test that is about the first Listen asks for that state by name, because the answer is
+    /// remembered per device and another test may already have given it.
+    private static func resetChoiceIfAsked() {
+        if ProcessInfo.processInfo.arguments.contains("--first-listen") {
+            UserDefaults.standard.set(false, forKey: "readAloudVoiceChosen")
+        }
+    }
+
+    init() { Self.resetChoiceIfAsked() }
+
     /// The voices offered, with the name a reader should see.
     var offered: [VoiceInfo] { voices() }
 
@@ -131,6 +153,7 @@ final class Speaker {
         next = 0
         askedAt = CFAbsoluteTimeGetCurrent()
         firstAudioMs = nil
+        held = nil
         deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
         phase = .preparing
         work?.cancel()
@@ -139,6 +162,7 @@ final class Speaker {
 
     /// What is left on the timer, straight off the clock, or nil when no clock is armed.
     var remaining: TimeInterval? {
+        if let held { return held }
         guard let deadline else { return nil }
         return max(0, deadline.timeIntervalSinceNow)
     }
@@ -146,12 +170,22 @@ final class Speaker {
     func pause() {
         guard phase == .reading else { return }
         player?.pause()
+        // The clock waits with the voice.
+        if let deadline {
+            held = max(0, deadline.timeIntervalSinceNow)
+            self.deadline = nil
+        }
         phase = .paused
     }
 
     func resume() {
         guard phase == .paused else { return }
         player?.play()
+        // Put the deadline back where it was left.
+        if let held {
+            deadline = Date().addingTimeInterval(held)
+            self.held = nil
+        }
         phase = .reading
     }
 
@@ -170,6 +204,7 @@ final class Speaker {
         speaking = nil
         chapter = nil
         deadline = nil
+        held = nil
         phase = .off
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
     }

@@ -75,7 +75,6 @@ struct RootView: View {
                 case .study: StudyView(theme: theme)
                 case .related: RelatedSheet(ref: verseAnchor, theme: theme)
                 case .words: WordsSheet(ref: verseAnchor, theme: theme)
-                case .listen: ListenSheet()
                 case .voiceChooser: VoiceChooserSheet()
                 case .note(let ref): NoteEditor(ref: ref, theme: theme)
                 }
@@ -171,7 +170,7 @@ struct TopBar: View {
             HStack(spacing: 0) {
                 listenTool
                 tool("magnifyingglass", "Search", id: "search") { store.sheet = .search }
-                tool("textformat.size", "Text and theme", id: "settings") { store.sheet = .settings }
+                tool("gearshape", "Settings", id: "settings") { store.sheet = .settings }
                 tool("bookmark", "Bookmarks, highlights and notes", id: "study") { store.sheet = .study }
             }
             .padding(.horizontal, 4)
@@ -184,7 +183,8 @@ struct TopBar: View {
     @ViewBuilder
     private var listenTool: some View {
         let phase = store.speaker.phase
-        let symbol = phase.isOn ? (phase == .paused ? "play.fill" : "waveform") : "play"
+        // The Mac's speaker, coloured while it is reading and never filled.
+        let symbol = phase.isOn ? "speaker.wave.2" : "speaker"
         Button {
             store.toggleReading()
         } label: {
@@ -196,20 +196,6 @@ struct TopBar: View {
         }
         .accessibilityLabel(phase.isOn ? "Stop reading aloud" : "Read aloud")
         .accessibilityIdentifier("listen")
-        .contextMenu {
-            Button {
-                store.sheet = .listen
-            } label: {
-                Label("Read Aloud settings", systemImage: "slider.horizontal.3")
-            }
-            if phase.isOn {
-                Button(role: .destructive) {
-                    store.speaker.stop()
-                } label: {
-                    Label("Stop", systemImage: "stop.fill")
-                }
-            }
-        }
     }
 
     private func tool(_ symbol: String, _ label: String, id: String, action: @escaping () -> Void) -> some View {

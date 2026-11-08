@@ -1,6 +1,11 @@
 import SwiftUI
 
-/// Theme, type and reading options, applied as you change them.
+/// The Mac's Settings, in the Mac's order: Reading, Read aloud, Appearance, Translations, Data,
+/// About. Shortcuts is the one tab the phone leaves out, because there is no keyboard to shortcut
+/// on and nothing else would be reached from it.
+///
+/// The labels and section names are the Mac's; the wording that has been polished on the phone is
+/// left exactly as it was.
 struct SettingsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
@@ -10,25 +15,13 @@ struct SettingsView: View {
         @Bindable var store = store
         NavigationStack {
             Form {
-                Section {
-                    HStack(spacing: 12) {
-                        ForEach(Appearance.allCases) { appearance in
-                            ThemeSwatch(
-                                appearance: appearance, selected: store.settings.appearance == appearance, accent: theme
-                            ) {
-                                store.settings.appearance = appearance
-                            }
-                        }
-                    }
-                    .padding(.vertical, 6)
-                }
-
-                Section("Text") {
+                Section("Reading") {
                     HStack(spacing: 14) {
                         Image(systemName: "textformat.size.smaller")
                             .foregroundStyle(.secondary)
                         Slider(value: $store.settings.textSize, in: ReaderSettings.textSizes, step: 1)
                             .accessibilityLabel("Text size")
+                            .accessibilityIdentifier("Text size")
                             .accessibilityValue("\(Int(store.settings.textSize)) points")
                         Image(systemName: "textformat.size.larger")
                             .foregroundStyle(.secondary)
@@ -45,9 +38,7 @@ struct SettingsView: View {
                     Text("Text follows the system’s text size too.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
-                }
 
-                Section("Reading") {
                     Toggle("Words of Jesus in red", isOn: $store.settings.redLetters)
                     Toggle("Verse numbers", isOn: $store.settings.verseNumbers)
                     Toggle("One verse per line", isOn: $store.settings.versePerLine)
@@ -55,27 +46,62 @@ struct SettingsView: View {
                     Toggle("Search whole words only", isOn: $store.settings.wholeWords)
                 }
 
-                Section("Notes and highlights") {
+                Section("Read aloud") {
+                    NavigationLink {
+                        ReadAloudSettings(theme: theme)
+                    } label: {
+                        LabeledContent("Voice", value: store.speaker.voice)
+                    }
+                }
+
+                Section("Appearance") {
+                    HStack(spacing: 12) {
+                        ForEach(Appearance.allCases) { appearance in
+                            ThemeSwatch(
+                                appearance: appearance, selected: store.settings.appearance == appearance, accent: theme
+                            ) {
+                                store.settings.appearance = appearance
+                            }
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+
+                Section("Translations") {
+                    ForEach(store.translations, id: \.id) { t in
+                        Button {
+                            store.settings.translation = t.id
+                        } label: {
+                            HStack(spacing: 10) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("\(t.abbrev) — \(t.name)")
+                                        .foregroundStyle(Color(theme.ink))
+                                    if let description = t.description {
+                                        Text(description)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(2)
+                                    }
+                                }
+                                Spacer(minLength: 0)
+                                if store.settings.translation == t.id {
+                                    Image(systemName: "checkmark")
+                                        .foregroundStyle(Color(theme.accent))
+                                }
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityValue(store.settings.translation == t.id ? "Selected" : "")
+                    }
+                }
+
+                Section("Data") {
                     ExportButton(title: "Export as Markdown", format: .markdown, file: "Bible notes.md")
                     ExportButton(title: "Export as JSON", format: .json, file: "Bible notes.json")
                 }
 
-                if let t = store.translation {
-                    Section("About the \(t.abbrev)") {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(t.name).font(.headline)
-                            if let description = t.description {
-                                Text(description).font(.subheadline).foregroundStyle(.secondary)
-                            }
-                            Text(t.copyright.isEmpty ? t.license : t.copyright)
-                                .font(.footnote)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-
-                Section {
+                Section("About") {
                     NavigationLink {
                         AboutView()
                     } label: {
@@ -84,7 +110,7 @@ struct SettingsView: View {
                     LabeledContent("Version", value: Self.version)
                 }
             }
-            .navigationTitle("Reading")
+            .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
@@ -101,6 +127,36 @@ struct SettingsView: View {
         let short = info?["CFBundleShortVersionString"] as? String ?? "?"
         let build = info?["CFBundleVersion"] as? String ?? "?"
         return "\(short) (\(build))"
+    }
+}
+
+/// Settings → Read aloud: the Mac's tab, which is the voice list and the sample buttons.
+struct ReadAloudSettings: View {
+    @Environment(Store.self) private var store
+    let theme: Theme
+
+    private var speaker: Speaker { store.speaker }
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    store.toggleReading()
+                } label: {
+                    Label(speaker.phase.isOn ? "Stop reading" : "Start reading",
+                          systemImage: speaker.phase.isOn ? "stop.fill" : "play.fill")
+                }
+                if let verse = speaker.speaking, let chapter = speaker.chapter {
+                    LabeledContent("Speaking") {
+                        Text("\(chapterLabel(index: UInt16(chapter))):\(verse)")
+                    }
+                }
+            }
+            VoiceList()
+        }
+        .navigationTitle("Read aloud")
+        .navigationBarTitleDisplayMode(.inline)
+        .onDisappear { speaker.stopAudition() }
     }
 }
 
@@ -140,6 +196,7 @@ private struct ThemeSwatch: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(appearance.label) theme")
+        .accessibilityIdentifier("\(appearance.label) theme")
         .accessibilityAddTraits(selected ? .isSelected : [])
     }
 }

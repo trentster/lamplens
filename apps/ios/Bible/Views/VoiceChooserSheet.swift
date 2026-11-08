@@ -82,28 +82,43 @@ struct VoiceChooserSheet: View {
                 } footer: {
                     Text("Tap ▶ to hear a verse in that voice.")
                 }
-
-                Section {
-                    Button {
-                        speaker.voice = chosen
-                        speaker.hasChosenVoice = true
-                        speaker.stopAudition()
-                        dismiss()
-                        store.startReading()
-                    } label: {
-                        Text("Choose \(label(for: chosen))")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                    }
-                    .accessibilityIdentifier("chooseVoice")
-                } footer: {
-                    Text("You can change this any time in Settings.")
-                }
             }
             .navigationTitle("Choose a reading voice")
             .navigationBarTitleDisplayMode(.inline)
             .onDisappear { speaker.stopAudition() }
+            // The action is pinned under the list, not the list's last row: as a row it scrolled
+            // below the sheet's edge on a phone and could be pressed only by dragging it up first.
+            .safeAreaInset(edge: .bottom) { choose }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    /// The one action, and the one line that says where to change it later.
+    private var choose: some View {
+        VStack(spacing: 10) {
+            Button {
+                speaker.voice = chosen
+                speaker.hasChosenVoice = true
+                speaker.stopAudition()
+                dismiss()
+                store.startReading()
+            } label: {
+                Text("Choose \(label(for: chosen))")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("chooseVoice")
+
+            Text("You can change this any time in Settings.")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 10)
+        .padding(.bottom, 8)
+        .background(.bar)
     }
 }

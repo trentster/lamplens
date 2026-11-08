@@ -1,54 +1,14 @@
 import SwiftUI
 
-/// Read Aloud's own panel: start or stop, and which voice reads.
+/// The Mac's Read aloud list, in the Mac's order: every voice, what it sounds like, and a sample.
 ///
-/// The timer is not here: on the Mac it is chosen from the listening bar while a reading runs, and
-/// the phone does the same. Nothing needs downloading either — the voice ships inside the app.
-struct ListenSheet: View {
+/// Shared by the Read Aloud panel and Settings → Read aloud, so the two cannot drift apart.
+struct VoiceList: View {
     @Environment(Store.self) private var store
-    @Environment(\.dismiss) private var dismiss
 
     private var speaker: Speaker { store.speaker }
 
     var body: some View {
-        NavigationStack {
-            List {
-                readSection
-                voiceSection
-            }
-            .navigationTitle("Read Aloud")
-            .navigationBarTitleDisplayMode(.inline)
-            .onDisappear { speaker.stopAudition() }
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-
-    // MARK: - Sections
-
-    private var readSection: some View {
-        Section {
-            Button {
-                store.toggleReading()
-                if speaker.phase.isOn { dismiss() }
-            } label: {
-                Label(speaker.phase.isOn ? "Stop reading" : "Start reading",
-                      systemImage: speaker.phase.isOn ? "stop.fill" : "play.fill")
-            }
-            if let verse = speaker.speaking, let chapter = speaker.chapter {
-                LabeledContent("Speaking") {
-                    Text("\(chapterLabel(index: UInt16(chapter))) :\(verse)")
-                }
-            }
-        } footer: {
-            Text("The voice follows the page: choosing a chapter, a verse or another translation stops the reading.")
-        }
-    }
-
-    private var voiceSection: some View {
         Section {
             ForEach(speaker.offered, id: \.name) { voice in
                 HStack(spacing: 12) {
