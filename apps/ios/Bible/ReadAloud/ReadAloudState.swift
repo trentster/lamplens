@@ -15,7 +15,9 @@ enum ReadAloudStop: String, CaseIterable, Identifiable {
         case .fifteenMinutes: "15 minutes"
         case .thirtyMinutes: "30 minutes"
         case .fortyFiveMinutes: "45 minutes"
-        case .sixtyMinutes: "60 minutes"
+        // Mark: it sits beside "2 hours". The raw value stays sixtyMinutes, so saved choices and
+        // the UI tests identifiers do not move.
+        case .sixtyMinutes: "1 hour"
         case .twoHours: "2 hours"
         case .keepReading: "Keep reading"
         }

@@ -216,7 +216,7 @@ final class ReadAloudStateTests: XCTestCase {
     func testTheMenuHasTheMacsEightRowsInOrder() {
         XCTAssertEqual(
             ReadAloudStop.allCases.map(\.title),
-            ["End of chapter", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "60 minutes",
+            ["End of chapter", "5 minutes", "15 minutes", "30 minutes", "45 minutes", "1 hour",
              "2 hours", "Keep reading"])
         XCTAssertNil(ReadAloudStop.endOfChapter.seconds)
         XCTAssertNil(ReadAloudStop.keepReading.seconds)
