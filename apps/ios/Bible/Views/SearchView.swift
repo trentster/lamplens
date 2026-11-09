@@ -33,6 +33,9 @@ struct SearchView: View {
 
     private static let pageSize: UInt32 = 50
 
+    private var bookName: String { store.book(of: store.position.chapter).name }
+    private var bookAbbrev: String { store.book(of: store.position.chapter).abbrev }
+
     var body: some View {
         NavigationStack {
             List {
@@ -62,10 +65,16 @@ struct SearchView: View {
                 prompt: "Search verses"
             )
             .searchScopes($scope, activation: .onSearchPresentation) {
-                Text("All").tag(Scope.all)
-                Text("Old").tag(Scope.old)
-                Text("New").tag(Scope.new)
-                Text(store.book(of: store.position.chapter).name).tag(Scope.book)
+                // "Bible" is the Mac's own word for the whole-text segment.
+                Text("Bible").tag(Scope.all)
+                // Short enough for four across, but VoiceOver says the whole thing.
+                Text("Old").tag(Scope.old).accessibilityLabel("Old Testament")
+                Text("New").tag(Scope.new).accessibilityLabel("New Testament")
+                // The same short form the toolbar uses: the scope bar gives each segment a quarter
+                // of the width, and a full name there was squeezed to nothing.
+                Text(bookName.count > 8 ? bookAbbrev : bookName)
+                    .tag(Scope.book)
+                    .accessibilityLabel(bookName)
             }
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
