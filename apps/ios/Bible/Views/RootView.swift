@@ -14,6 +14,7 @@ struct RootView: View {
                 ReaderContainer(
                     store: store, theme: theme, style: typography(theme), translation: store.settings.translation,
                     readingLine: safeTop + 60, selection: store.selection, speaking: store.speakingVerse,
+                    voice: store.followingVoice,
                     marksVersion: store.marksVersion,
                     jump: store.jump
                 )

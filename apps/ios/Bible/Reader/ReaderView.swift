@@ -73,7 +73,10 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
 
     var selection: VerseSelection? {
         didSet {
-            if selection != oldValue { redrawTiles() }
+            guard selection != oldValue else { return }
+            redrawTiles()
+            // The page held still for the verse menu; once it closes, it catches up with the voice.
+            if selection == nil { followVoice() }
         }
     }
 
@@ -90,9 +93,22 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
         didSet {
             if lookedUp?.range != oldValue?.range || lookedUp?.chapter != oldValue?.chapter {
                 redrawTiles()
+                if lookedUp == nil { followVoice() }
             }
         }
     }
+
+    /// Where the voice is while it is sounding, for the page to follow; `nil` when nothing is being
+    /// said, paused included. The Mac's `Listen::following`.
+    var voice: VoicePosition? {
+        didSet {
+            if voice != oldValue { followVoice() }
+        }
+    }
+
+    /// When the reader last moved the page themselves. For `FollowTheVoice.yield` after it, the page
+    /// is theirs.
+    private var userScrolledAt = Date.distantPast
 
     private(set) var theme = Theme.light
     private var style: Typography?
@@ -591,6 +607,8 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     }
 
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
+        // A finger on the page, or the fling it left behind. The page's own following is neither.
+        if isTracking || isDragging || isDecelerating { userScrolledAt = Date() }
         let dy = contentOffset.y - lastOffset
         lastOffset = contentOffset.y
         // The tree covers what is on screen and one chapter either side, so it is rebuilt when a
@@ -618,6 +636,40 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
         else { return false }
         setContentOffset(CGPoint(x: 0, y: offset(for: p, verse: 1)), animated: true)
         return false
+    }
+
+    // MARK: Following the voice
+
+    /// The page follows the voice, as the Mac's `Reader::follow` does: it moves only when the verse
+    /// being said is about to leave the comfortable part of the screen (`FollowTheVoice`), and never
+    /// while the reader is using the page: while they scroll, for a while after they scroll, or while
+    /// the verse menu or a word's card is open. Once the menu or the card closes, the page catches up.
+    private func followVoice() {
+        guard let voice, let style = effectiveStyle, !placed.isEmpty,
+            selection == nil, lookedUp == nil,
+            !isTracking, !isDragging, !isDecelerating,
+            Date().timeIntervalSince(userScrolledAt) >= FollowTheVoice.yield
+        else { return }
+        guard let p = placed.first(where: { $0.layout.index == voice.chapter }),
+            let verseTop = p.layout.top(of: voice.verse)
+        else {
+            // Not in the loaded window: the reader is more than a chapter away from the voice. As on
+            // the Mac, coming back from that far is a jump, not a scroll.
+            jump(to: voice.chapter, verse: voice.verse, animated: false, flash: false)
+            return
+        }
+        let top = p.y + verseTop
+        let bottom = p.y + (p.layout.bands(of: voice.verse).last?.maxY ?? verseTop + style.lineHeight)
+        guard
+            let move = FollowTheVoice.move(
+                top: top - contentOffset.y, height: max(bottom - top, 1), toolbar: readingLine,
+                viewport: bounds.height)
+        else { return }
+        let lowest = -adjustedContentInset.top
+        let highest = max(lowest, contentSize.height + adjustedContentInset.bottom - bounds.height)
+        let target = min(max(contentOffset.y + move, lowest), highest)
+        guard abs(target - contentOffset.y) > 1 else { return }
+        setContentOffset(CGPoint(x: 0, y: target), animated: true)
     }
 
     // MARK: Taps

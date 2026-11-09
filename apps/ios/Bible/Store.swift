@@ -434,6 +434,15 @@ final class Store {
         speaker.resume()
     }
 
+    /// Where the page should follow: the verse being said while the voice is sounding, and only
+    /// then. Paused or ready has no claim on where the reader is looking. The Mac's
+    /// `Listen::following`.
+    var followingVoice: VoicePosition? {
+        guard speaker.phase == .reading, let chapter = speaker.chapter, let verse = speaker.speaking
+        else { return nil }
+        return VoicePosition(chapter: chapter, verse: Int(verse))
+    }
+
     /// The verse Read Aloud is saying, when it is saying one on the chapter on screen.
     var speakingVerse: Int? {
         guard speaker.phase.isOn, speaker.chapter == position.chapter,

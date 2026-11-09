@@ -10,6 +10,8 @@ struct ReaderContainer: UIViewRepresentable {
     let readingLine: CGFloat
     let selection: VerseSelection?
     let speaking: Int?
+    /// Where the voice is while it is sounding, for the page to follow.
+    let voice: VoicePosition?
     let marksVersion: Int
     let jump: JumpRequest?
 
@@ -36,6 +38,7 @@ struct ReaderContainer: UIViewRepresentable {
         view.configure(style: style, theme: theme, key: translation)
         view.selection = selection
         view.speaking = speaking
+        view.voice = voice
         // The tint on a looked-up word belongs to its card: when the card closes, so does the tint.
         if case .lookup? = store.sheet {} else { view.lookedUp = nil }
         if c.marksVersion != marksVersion {
