@@ -34,7 +34,10 @@ struct ListeningBar: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color(theme.onAccent))
                     .frame(width: 40, height: 40)
-                    .background(Color(theme.accentSoft), in: Circle())
+                    // A solid accent circle with an on-accent glyph, as the Mac draws it. White on
+                    // pale was nearly invisible. The palette carries no quiet accent, so the accent
+                    // itself is the fallback Claude allowed for.
+                    .background(Color(theme.accent), in: Circle())
             }
             .accessibilityLabel(playLabel)
             .accessibilityIdentifier("listenPause")
