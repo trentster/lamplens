@@ -336,7 +336,11 @@ final class Store {
     /// the bar used to ride up the keyboard above the note card, where its stop button sat where a
     /// thumb expects the card's close button.) Notes only: the lookup card pauses nothing.
     func openNote(_ ref: VerseRef) {
-        speaker.pause()
+        #if DEBUG
+            // Every way into a note comes through here. The reading is left alone: Mark's rule,
+            // matching the Mac, is that it stops only when the reader stops it.
+            Breadcrumbs.mark("openNote: reading is \(speaker.phase)")
+        #endif
         sheet = .note(ref)
     }
 

@@ -28,7 +28,7 @@ struct StudyView: View {
                     .contextMenu {
                         if kind == .notes {
                             Button {
-                                store.sheet = .note(item.verse)
+                                store.openNote(item.verse)
                             } label: {
                                 Label("Edit Note", systemImage: "square.and.pencil")
                             }
