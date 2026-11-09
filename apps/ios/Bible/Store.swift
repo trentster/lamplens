@@ -155,16 +155,23 @@ final class Store {
             ReaderStateDebug.store = self
         #endif
         jump = JumpRequest(chapter: position.chapter, verse: position.verse)
-        #if DEBUG
-            // A UI test can ask for one word's card by name, so the case where nothing defines the
-            // word can be shown without hunting for such a word in the text.
-            if arguments.contains("--uitest"), let i = arguments.firstIndex(of: "--lookup"),
-                i + 1 < arguments.count
-            {
-                lookUp(
-                    word: arguments[i + 1], chapter: position.chapter, verse: position.verse)
+        // A UI test can ask for one word's card by name, so the case where nothing defines the word
+        // can be shown without hunting for such a word in the text. Not behind #if DEBUG: the UI
+        // suite runs the Release configuration, where DEBUG is compiled out, and it needs the hook.
+        // Only --uitest reaches it, which no real launch passes.
+        if arguments.contains("--uitest"), let i = arguments.firstIndex(of: "--lookup"),
+            i + 1 < arguments.count
+        {
+            // After the first layout pass: a sheet asked for during the very first body evaluation
+            // is dropped, which is why this card never appeared in the test.
+            let word = arguments[i + 1]
+            Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                self?.lookUp(
+                    word: word, chapter: self?.position.chapter ?? 0,
+                    verse: self?.position.verse ?? 1)
             }
-        #endif
+        }
     }
 
     /// The study database and imported texts live in Application Support. If that can't be
