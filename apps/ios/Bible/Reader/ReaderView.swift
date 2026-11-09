@@ -42,8 +42,15 @@ struct ChapterSource: Sendable {
 /// moves the content (with the offset) when it adds or drops above, so scrolling never ends
 /// until Genesis 1 or Revelation 22. Text is drawn into fixed-height tiles, so only what's on
 /// screen is ever drawn.
-final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+final class ReaderView: UIScrollView, UIScrollViewDelegate {
     weak var readerDelegate: ReaderViewDelegate?
+
+    /// The page tap's delegate. Deliberately not the reader itself: a UIScrollView is the delegate of
+    /// its own pan recogniser, so any UIGestureRecognizerDelegate method implemented on the reader
+    /// would also govern scrolling. That is exactly how the freeze happened: refusing touches while
+    /// decelerating refused them to the scroll view's own pan too, leaving it stuck dragging and
+    /// decelerating with the pan at .possible.
+    private let tapGate = TapGate()
 
     var source: ChapterSource?
 
@@ -124,7 +131,8 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         decelerationRate = .normal
         contentInset = UIEdgeInsets(top: readingLine, left: 0, bottom: 0, right: 0)
         let tap = UITapGestureRecognizer(target: self, action: #selector(tapped(_:)))
-        tap.delegate = self
+        tapGate.reader = self
+        tap.delegate = tapGate
         addGestureRecognizer(tap)
         isAccessibilityElement = false
         #if DEBUG
@@ -639,11 +647,6 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
 
     // MARK: Taps
 
-    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        // A tap that stops a fling only stops it.
-        !isDecelerating
-    }
-
     @objc private func tapped(_ tap: UITapGestureRecognizer) {
         let point = tap.location(in: self)
         guard let p = placed.first(where: { point.y >= $0.y && point.y < $0.maxY }) else {
@@ -720,6 +723,18 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
             reader.readerDelegate?.reader(reader, didTapVerse: verse, inChapter: chapter)
             return true
         }
+    }
+}
+
+/// Decides whether the page's tap may see a touch. Only the tap: it is never the delegate of the
+/// scroll view's own gesture recognisers.
+@MainActor
+private final class TapGate: NSObject, UIGestureRecognizerDelegate {
+    weak var reader: UIScrollView?
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+        // A tap that stops a fling only stops it.
+        !(reader?.isDecelerating ?? false)
     }
 }
 
