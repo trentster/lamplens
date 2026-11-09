@@ -76,6 +76,21 @@ targets:
         GENERATE_INFOPLIST_FILE: NO
         # The framework's simulator slice is Apple Silicon only (see scripts/build-ios.sh).
         EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
+  # Logic tests: rules with no app around them, so they run in seconds with no simulator taps.
+  # The files under test are compiled straight into the bundle rather than reached through the
+  # app, so there is no host app to launch and nothing here depends on the Rust framework.
+  BibleTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: BibleTests
+      - path: Bible/ReadAloud/ReadAloudState.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(BIBLE_BUNDLE_ID).tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1,2"
+        EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
   BibleUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -95,6 +110,7 @@ schemes:
     build:
       targets:
         Bible: all
+        BibleTests: [test]
         BibleUITests: [test]
     run:
       config: Debug
@@ -105,6 +121,7 @@ schemes:
     test:
       config: Release
       targets:
+        - BibleTests
         - BibleUITests
     archive:
       config: Release

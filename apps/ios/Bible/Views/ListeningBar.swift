@@ -23,19 +23,20 @@ struct ListeningBar: View {
     private var bar: some View {
         HStack(spacing: 12) {
             Button {
-                if speaker.phase == .paused {
-                    speaker.resume()
-                } else {
-                    speaker.pause()
+                switch speaker.phase {
+                case .reading: speaker.pause()
+                // One tap tries again from where the page is, and plays.
+                case .failed: store.retryReading()
+                case .off, .ready, .paused: speaker.resume()
                 }
             } label: {
-                Image(systemName: speaker.phase == .paused ? "play.fill" : "pause.fill")
+                Image(systemName: playSymbol)
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Color(theme.onAccent))
                     .frame(width: 40, height: 40)
                     .background(Color(theme.accentSoft), in: Circle())
             }
-            .accessibilityLabel(speaker.phase == .paused ? "Resume reading" : "Pause reading")
+            .accessibilityLabel(playLabel)
             .accessibilityIdentifier("listenPause")
 
             VStack(alignment: .leading, spacing: 1) {
@@ -151,16 +152,25 @@ struct ListeningBar: View {
         .presentationDetents([.medium])
     }
 
-    /// "Listening" or "Paused": what is actually happening, because a bar that says Listening while
-    /// silent is a lie. The voice is not named here — it is chosen in the panel, and repeating it
-    /// beside your own reading is one more thing to read and nothing more.
-    private var status: String {
+    /// "Listening", "Paused", "Ready", or what went wrong: what is actually happening, because a bar
+    /// that says Listening while silent is a lie. The rule is the Mac's and lives with the reading's
+    /// other rules in `ReadAloudState`. The voice is not named here: it is chosen in the panel, and
+    /// repeating it beside your own reading is one more thing to read and nothing more.
+    private var status: String { speaker.status }
+
+    private var playSymbol: String {
         switch speaker.phase {
-        case .reading: "Listening"
-        case .paused: "Paused"
-        case .preparing: "Starting"
-        case .off: "Ready"
-        case .failed: "Ready"
+        case .reading: "pause.fill"
+        case .failed: "arrow.clockwise"
+        case .off, .ready, .paused: "play.fill"
+        }
+    }
+
+    private var playLabel: String {
+        switch speaker.phase {
+        case .reading: "Pause reading"
+        case .failed: "Try again"
+        case .off, .ready, .paused: "Resume reading"
         }
     }
 }

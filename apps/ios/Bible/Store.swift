@@ -373,6 +373,14 @@ final class Store {
         }
     }
 
+    /// After a failure, one tap tries again from where the page is, and plays: someone who pressed
+    /// Play once should not have to press it twice.
+    func retryReading() {
+        speaker.stop()
+        startReading()
+        speaker.resume()
+    }
+
     /// The verse Read Aloud is saying, when it is saying one on the chapter on screen.
     var speakingVerse: Int? {
         guard speaker.phase.isOn, speaker.chapter == position.chapter,
