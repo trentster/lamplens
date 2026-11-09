@@ -72,8 +72,7 @@ struct ReaderContainer: UIViewRepresentable {
         }
 
         func reader(_ reader: ReaderView, isReadingOn: Bool) {
-            guard store.selection == nil, store.barsHidden != isReadingOn else { return }
-            store.barsHidden = isReadingOn
+            store.scrollHidesBars(isReadingOn)
         }
     }
 }

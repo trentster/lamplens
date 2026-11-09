@@ -103,7 +103,9 @@ final class Store {
     /// Bumped whenever highlights, notes or bookmarks change.
     private(set) var marksVersion = 0
     var sheet: Sheet?
-    var barsHidden = false
+    /// Whether the toolbar and the status bar are away. Private so every change goes through a named
+    /// method below, and the rules about when the bars show live in this one file.
+    private(set) var barsHidden = false
     /// Read Aloud: the voice, the audio and the timer.
     let speaker = Speaker()
     private(set) var toast: String?
@@ -215,7 +217,7 @@ final class Store {
     func go(to chapter: Int, verse: Int = 1, flash: Bool = false, animated: Bool = false) {
         stopReading()
         selection = nil
-        barsHidden = false
+        showBars()
         position = Position(chapter: chapter, verse: verse)
         jump = JumpRequest(chapter: chapter, verse: verse, animated: animated, flash: flash)
         scheduleSave()
@@ -235,7 +237,7 @@ final class Store {
     // MARK: Selection
 
     func tap(verse: Int, chapter: Int) {
-        barsHidden = false
+        showBars()
         if var s = selection, s.chapter == chapter {
             if s.verses.contains(verse) { s.verses.remove(verse) } else { s.verses.insert(verse) }
             selection = s.verses.isEmpty ? nil : s
@@ -248,8 +250,22 @@ final class Store {
         if selection != nil {
             selection = nil
         } else {
+            // An empty page: the reader tapped it to get the bars out of the way, or to bring them
+            // back.
             barsHidden.toggle()
         }
+    }
+
+    /// The bars come back whenever the reader goes somewhere or asks for something.
+    func showBars() {
+        barsHidden = false
+    }
+
+    /// Scrolling down the page hides the bars; scrolling up brings them back. A selection keeps them
+    /// on screen, because the reader is working with the verses it covers.
+    func scrollHidesBars(_ hide: Bool) {
+        guard selection == nil, barsHidden != hide else { return }
+        barsHidden = hide
     }
 
     var selectedRefs: [VerseRef] {
