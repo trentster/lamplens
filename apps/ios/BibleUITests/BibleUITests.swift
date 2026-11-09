@@ -329,6 +329,38 @@ final class BibleUITests: XCTestCase {
         app.buttons["listenClose"].tap()
     }
 
+    /// Pressing and holding a word opens the card that explains it.
+    func testHoldingAWordOpensItsDefinition() {
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        // The middle of the page is a word or two into a verse, whichever verse that is.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).press(forDuration: 1.2)
+        let card = app.descendants(matching: .any)["lookupCard"]
+        XCTAssertTrue(card.waitForExistence(timeout: 6), "holding a word opened nothing")
+        app.buttons["lookupDone"].tap()
+    }
+
+    /// A word neither dictionary has says so plainly, and offers nothing to tap through to: there is
+    /// no Wiktionary link, because the app never goes looking outside itself.
+    func testAWordNotInTheDictionarySaysSo() {
+        app.terminate()
+        app.launchArguments = ["--uitest", "--lookup", "zzzqqq"]
+        app.launch()
+        XCTAssertTrue(app.staticTexts["No definition found"].waitForExistence(timeout: 10), "no card for the word")
+        XCTAssertFalse(app.buttons["Wiktionary"].exists, "there should be no way out to the web")
+    }
+
+    /// The press must not get in the page's way: scrolling still works after a lookup, and the card
+    /// closing leaves the reading and the page as they were.
+    func testScrollingStillWorksAfterALookup() {
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).press(forDuration: 1.2)
+        XCTAssertTrue(app.descendants(matching: .any)["lookupCard"].waitForExistence(timeout: 6))
+        app.buttons["lookupDone"].tap()
+        let before = reference.label
+        for _ in 0..<12 { app.swipeUp(velocity: .fast) }
+        XCTAssertNotEqual(before, reference.label, "the page would not scroll after a lookup")
+    }
+
     /// A flick, then a drag straight after it, must not be refused.
     ///
     /// The reader is a UIScrollView and used to be the delegate of its own pan recogniser, so the

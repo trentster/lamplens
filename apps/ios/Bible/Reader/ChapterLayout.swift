@@ -126,6 +126,35 @@ final class ChapterLayout {
         return storage.attribute(.verse, at: min(char, storage.length - 1), effectiveRange: nil) as? Int
     }
 
+    /// The word under a point, in chapter coordinates: the word itself, its range in the text, and
+    /// the rect it occupies. A press that lands on a verse number or the space between words finds
+    /// nothing, so no card opens.
+    func word(at point: CGPoint) -> (word: String, range: NSRange, frame: CGRect)? {
+        let p = CGPoint(x: point.x - origin.x, y: point.y - origin.y)
+        guard storage.length > 0, p.y >= 0, p.y <= manager.usedRect(for: container).maxY else {
+            return nil
+        }
+        let glyph = manager.glyphIndex(for: p, in: container)
+        let char = manager.characterIndexForGlyph(at: glyph)
+        guard char < storage.length else { return nil }
+        for ranges in words.values {
+            for range in ranges where range.location <= char && char < NSMaxRange(range) {
+                let text = (storage.string as NSString).substring(with: range)
+                    .trimmingCharacters(in: .whitespacesAndNewlines)
+                guard text.contains(where: { $0.isLetter }) else { return nil }
+                return (text, range, frame(of: range))
+            }
+        }
+        return nil
+    }
+
+    /// Where a range of the text sits, in chapter coordinates.
+    func frame(of range: NSRange) -> CGRect {
+        let glyphs = manager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+        return manager.boundingRect(forGlyphRange: glyphs, in: container)
+            .offsetBy(dx: origin.x, dy: origin.y)
+    }
+
     /// The verse at the reading line `y`: the last verse starting at or above it.
     func verse(atY y: CGFloat) -> Int {
         var found = verseTops.first?.verse ?? 1
@@ -188,6 +217,8 @@ final class ChapterLayout {
         var selected: Set<Int> = []
         /// The verse Read Aloud is saying right now, tinted so the eye can follow the voice.
         var speaking: Int?
+        /// A word being looked up, tinted while its card is open.
+        var lookedUp: NSRange?
     }
 
     /// Draws the part of the chapter inside `rect` (chapter coordinates) into the current
@@ -199,6 +230,9 @@ final class ChapterLayout {
         // made, must stay the loudest thing on the page.
         if let spoken = d.speaking {
             fill(bands(of: spoken), in: rect, color: d.theme.accentSoft, radius: radius, ctx: ctx)
+        }
+        if let range = d.lookedUp {
+            fill([frame(of: range)], in: rect, color: d.theme.selection, radius: radius, ctx: ctx)
         }
         for (verse, mark) in marks {
             guard let color = mark.highlight else { continue }

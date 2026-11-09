@@ -49,6 +49,15 @@ extension Comparable {
 }
 
 /// A chapter (0–1188 in the canonical grid) and verse.
+/// A word held down on the page, and the verse it was pressed in.
+struct WordLookup: Identifiable, Equatable {
+    let id = UUID()
+    var word: String
+    var chapter: Int
+    var verse: Int
+    var reference: String
+}
+
 struct Position: Equatable {
     var chapter: Int
     var verse: Int
@@ -66,6 +75,7 @@ struct JumpRequest: Equatable {
 enum Sheet: Identifiable, Equatable {
     case books, search, settings, study, related, words, voiceChooser
     case note(VerseRef)
+    case lookup(WordLookup)
 
     var id: String {
         switch self {
@@ -76,6 +86,7 @@ enum Sheet: Identifiable, Equatable {
         case .related: "related"
         case .words: "words"
         case .voiceChooser: "voiceChooser"
+        case .lookup: "lookup"
         case .note(let v): "note-\(v.book)-\(v.chapter)-\(v.verse)"
         }
     }
@@ -144,6 +155,16 @@ final class Store {
             ReaderStateDebug.store = self
         #endif
         jump = JumpRequest(chapter: position.chapter, verse: position.verse)
+        #if DEBUG
+            // A UI test can ask for one word's card by name, so the case where nothing defines the
+            // word can be shown without hunting for such a word in the text.
+            if arguments.contains("--uitest"), let i = arguments.firstIndex(of: "--lookup"),
+                i + 1 < arguments.count
+            {
+                lookUp(
+                    word: arguments[i + 1], chapter: position.chapter, verse: position.verse)
+            }
+        #endif
     }
 
     /// The study database and imported texts live in Application Support. If that can't be
@@ -405,6 +426,16 @@ final class Store {
             let verse = speaker.speaking
         else { return nil }
         return Int(verse)
+    }
+
+    /// A word held down on the page: its card explains it. Nothing else changes — the reading
+    /// carries on and the page stays exactly where it is.
+    func lookUp(word: String, chapter: Int, verse: Int) {
+        let ref = ref(chapter: chapter, verse: verse)
+        sheet = .lookup(
+            WordLookup(
+                word: word, chapter: chapter, verse: verse,
+                reference: rangeLabel(from: ref, to: ref)))
     }
 
     /// The voice follows the page: anything that moves the reader ends the reading.

@@ -36,6 +36,8 @@ struct ReaderContainer: UIViewRepresentable {
         view.configure(style: style, theme: theme, key: translation)
         view.selection = selection
         view.speaking = speaking
+        // The tint on a looked-up word belongs to its card: when the card closes, so does the tint.
+        if case .lookup? = store.sheet {} else { view.lookedUp = nil }
         if c.marksVersion != marksVersion {
             c.marksVersion = marksVersion
             view.reloadMarks()
@@ -69,6 +71,10 @@ struct ReaderContainer: UIViewRepresentable {
 
         func readerDidTapPage(_ reader: ReaderView) {
             store.tapPage()
+        }
+
+        func reader(_ reader: ReaderView, didLookUp word: String, inChapter chapter: Int, verse: Int) {
+            store.lookUp(word: word, chapter: chapter, verse: verse)
         }
 
         func reader(_ reader: ReaderView, isReadingOn: Bool) {

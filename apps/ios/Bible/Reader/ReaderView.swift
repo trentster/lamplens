@@ -9,6 +9,8 @@ protocol ReaderViewDelegate: AnyObject {
     func reader(_ reader: ReaderView, didTapNoteOf verse: Int, inChapter chapter: Int)
     /// A tap away from any verse.
     func readerDidTapPage(_ reader: ReaderView)
+    /// A word held down on the page, and the verse it belongs to.
+    func reader(_ reader: ReaderView, didLookUp word: String, inChapter chapter: Int, verse: Int)
     /// The reader is scrolling on through the text (`true`) or back.
     func reader(_ reader: ReaderView, isReadingOn: Bool)
 }
@@ -53,6 +55,11 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     /// decelerating with the pan at .possible.
     private let tapGate = TapGate()
 
+    /// The press-and-hold's delegate. Its own object for the same reason as the tap's: a
+    /// UIScrollView is the delegate of its own pan, so a gesture delegate method on the reader
+    /// would govern scrolling too. That mistake froze the page once already.
+    private let pressGate = PressGate()
+
     var source: ChapterSource?
 
     /// Distance from the top of the view to the line the reading position is read at (just
@@ -75,6 +82,15 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     var speaking: Int? {
         didSet {
             if speaking != oldValue { redrawTiles() }
+        }
+    }
+
+    /// The word whose card is open, tinted so the reader can see what is being explained.
+    var lookedUp: (chapter: Int, range: NSRange)? {
+        didSet {
+            if lookedUp?.range != oldValue?.range || lookedUp?.chapter != oldValue?.chapter {
+                redrawTiles()
+            }
         }
     }
 
@@ -140,6 +156,10 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
         tapGate.reader = self
         tap.delegate = tapGate
         addGestureRecognizer(tap)
+        let press = UILongPressGestureRecognizer(target: self, action: #selector(pressed(_:)))
+        press.minimumPressDuration = 0.45
+        press.delegate = pressGate
+        addGestureRecognizer(press)
         isAccessibilityElement = false
         #if DEBUG
             panGestureRecognizer.addTarget(self, action: #selector(panStateChanged(_:)))
@@ -507,7 +527,9 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
             let selected = selection?.chapter == p.layout.index ? selection?.verses ?? [] : []
             p.layout.draw(
                 area.offsetBy(dx: 0, dy: -p.y),
-                decorations: .init(theme: theme, selected: selected, speaking: speaking))
+                decorations: .init(
+                    theme: theme, selected: selected, speaking: speaking,
+                    lookedUp: lookedUp?.chapter == p.layout.index ? lookedUp?.range : nil))
             ctx.restoreGState()
         }
         LaunchClock.mark("First page drawn")
@@ -598,6 +620,20 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     }
 
     // MARK: Taps
+
+    /// A word held down: tint it and ask for its card. One gesture, one report — the press fires on
+    /// .began only, so holding on does not open card after card.
+    @objc private func pressed(_ press: UILongPressGestureRecognizer) {
+        guard press.state == .began else { return }
+        let point = press.location(in: self)
+        guard let p = placed.first(where: { point.y >= $0.y && point.y < $0.maxY }) else { return }
+        let local = CGPoint(x: point.x, y: point.y - p.y)
+        guard let hit = p.layout.word(at: local) else { return }
+        lookedUp = (p.layout.index, hit.range)
+        readerDelegate?.reader(
+            self, didLookUp: hit.word, inChapter: p.layout.index,
+            verse: p.layout.verse(at: local) ?? 1)
+    }
 
     @objc private func tapped(_ tap: UITapGestureRecognizer) {
         let point = tap.location(in: self)
@@ -699,6 +735,17 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
 /// Decides whether the page's tap may see a touch. Only the tap: it is never the delegate of the
 /// scroll view's own gesture recognisers.
 @MainActor
+/// Lets the press-and-hold share touches with everything else. A long press fails by itself as soon
+/// as the finger moves, so scrolling is never held up — this only makes sure of it.
+private final class PressGate: NSObject, UIGestureRecognizerDelegate {
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
+    ) -> Bool {
+        true
+    }
+}
+
 private final class TapGate: NSObject, UIGestureRecognizerDelegate {
     weak var reader: UIScrollView?
 

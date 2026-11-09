@@ -80,6 +80,7 @@ struct RootView: View {
                 case .words: WordsSheet(ref: verseAnchor, theme: theme)
                 case .voiceChooser: VoiceChooserSheet()
                 case .note(let ref): NoteEditor(ref: ref, theme: theme)
+                case .lookup(let look): LookupCard(lookup: look, theme: theme)
                 }
             }
             .environment(store)
