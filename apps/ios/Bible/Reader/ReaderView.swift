@@ -186,17 +186,6 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
             }
         }
 
-        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
-            Breadcrumbs.mark("drag began")
-        }
-
-        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
-            Breadcrumbs.mark("drag ended, willDecelerate=\(decelerate)")
-        }
-
-        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
-            Breadcrumbs.mark("deceleration ended offset=\(Int(contentOffset.y))")
-        }
     #endif
 
     // MARK: Configuration
@@ -359,6 +348,12 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         #if DEBUG
             fillPasses += 1
         #endif
+        // Prepending or pruning moves contentOffset out from under the scroll view. Doing that while
+        // a finger or a deceleration is still moving the offset corrupts UIKit's scroll state: the
+        // offset jumps by the chapter's height, isDragging and isDecelerating stick at true, the pan
+        // is left at .possible and the page stops answering drags while everything else carries on.
+        // The strip already holds four screens either way, so it waits for the scrolling to stop.
+        let atRest = !isTracking && !isDragging && !isDecelerating
 
         while let last = placed.last, last.maxY < contentOffset.y + height + ahead,
             last.layout.index + 1 < Self.chapterCount
@@ -366,7 +361,7 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
             placed.append(Placed(layout: typeset(last.layout.index + 1, style), y: last.maxY))
             changed = true
         }
-        while let first = placed.first, first.y > contentOffset.y - ahead, first.layout.index > 0 {
+        while atRest, let first = placed.first, first.y > contentOffset.y - ahead, first.layout.index > 0 {
             let layout = typeset(first.layout.index - 1, style)
             guard shift(by: layout.height) else {
                 #if DEBUG
@@ -383,7 +378,7 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
             placed.removeLast()
             changed = true
         }
-        while placed.count > 1, placed[0].maxY < contentOffset.y - keep {
+        while atRest, placed.count > 1, placed[0].maxY < contentOffset.y - keep {
             let h = placed[0].layout.height
             guard shift(by: -h) else { break }
             placed.removeFirst()
@@ -553,6 +548,87 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
     }
 
     /// The status bar takes you to the top of the chapter you're in, not of the loaded window.
+    // MARK: - A stalled deceleration
+
+    private var stallWatch: Timer?
+    private var lastStallOffset: CGFloat = 0
+    private var stallTicks = 0
+
+    /// UIKit can be left reporting that it is dragging and decelerating while its pan sits at
+    /// `.possible`, and then no `ended` or `cancelled` ever arrives to clear it — the page stops
+    /// answering drags for good. Nothing in this class writes the scroll view when it happens, so
+    /// until the cause is pinned down the reader puts itself back on its feet.
+    private func watchForStall() {
+        stallWatch?.invalidate()
+        lastStallOffset = contentOffset.y
+        stallTicks = 0
+        stallWatch = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] timer in
+            guard let self else {
+                timer.invalidate()
+                return
+            }
+            guard self.isDragging || self.isDecelerating else {
+                timer.invalidate()
+                return
+            }
+            let still = abs(self.contentOffset.y - self.lastStallOffset) < 0.5
+            self.lastStallOffset = self.contentOffset.y
+            guard still, self.panGestureRecognizer.state == .possible else {
+                self.stallTicks = 0
+                return
+            }
+            self.stallTicks += 1
+            guard self.stallTicks >= 3 else { return }
+            timer.invalidate()
+            self.repairStalledScroll()
+        }
+    }
+
+    /// Rebuilds the gesture machinery from scratch and leaves the page where it was.
+    private func repairStalledScroll() {
+        stallTicks = 0
+        #if DEBUG
+            Breadcrumbs.mark("repairing a stalled scroll at offset=\(Int(contentOffset.y))")
+        #endif
+        let restingOffset = contentOffset
+        isScrollEnabled = false
+        isScrollEnabled = true
+        setContentOffset(restingOffset, animated: false)
+        setNeedsLayout()
+    }
+
+    /// The strip only grows or trims itself when the scrolling has stopped (see `fill`), so these
+    /// three ask for the layout pass that lets it catch up.
+    func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+        #if DEBUG
+            Breadcrumbs.mark("drag began")
+        #endif
+    }
+
+    func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+        #if DEBUG
+            Breadcrumbs.mark("drag ended, willDecelerate=\(decelerate)")
+        #endif
+        if decelerate {
+            watchForStall()
+        } else {
+            setNeedsLayout()
+        }
+    }
+
+    func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+        #if DEBUG
+            Breadcrumbs.mark("deceleration ended offset=\(Int(contentOffset.y))")
+        #endif
+        stallWatch?.invalidate()
+        setNeedsLayout()
+    }
+
+    func scrollViewDidEndScrollingAnimation(_ scrollView: UIScrollView) {
+        stallWatch?.invalidate()
+        setNeedsLayout()
+    }
+
     func scrollViewShouldScrollToTop(_ scrollView: UIScrollView) -> Bool {
         guard let position = readingPosition(),
             let p = placed.first(where: { $0.layout.index == position.chapter })
