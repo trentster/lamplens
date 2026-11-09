@@ -158,6 +158,7 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
         addGestureRecognizer(tap)
         let press = UILongPressGestureRecognizer(target: self, action: #selector(pressed(_:)))
         press.minimumPressDuration = 0.45
+        pressGate.reader = self
         press.delegate = pressGate
         addGestureRecognizer(press)
         isAccessibilityElement = false
@@ -738,11 +739,15 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
 /// Lets the press-and-hold share touches with everything else. A long press fails by itself as soon
 /// as the finger moves, so scrolling is never held up — this only makes sure of it.
 private final class PressGate: NSObject, UIGestureRecognizerDelegate {
+    weak var reader: UIScrollView?
+
     func gestureRecognizer(
         _ gestureRecognizer: UIGestureRecognizer,
         shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer
     ) -> Bool {
-        true
+        // A hold shares touches with scrolling, and with nothing else. Sharing with the tap let it
+        // fire when the held finger lifted, selecting the verse behind the card.
+        other === reader?.panGestureRecognizer
     }
 }
 

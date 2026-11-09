@@ -66,7 +66,7 @@ struct ReaderContainer: UIViewRepresentable {
 
         func reader(_ reader: ReaderView, didTapNoteOf verse: Int, inChapter chapter: Int) {
             store.selection = nil
-            store.sheet = .note(store.ref(chapter: chapter, verse: verse))
+            store.openNote(store.ref(chapter: chapter, verse: verse))
         }
 
         func readerDidTapPage(_ reader: ReaderView) {

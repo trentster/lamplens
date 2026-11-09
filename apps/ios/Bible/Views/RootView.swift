@@ -60,6 +60,9 @@ struct RootView: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 8)
+                // The bar belongs at the bottom of the page, not floating above a keyboard: a sheet
+                // covers it, rather than the bar riding up over the sheet's own controls.
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
         }
         .animation(.smooth(duration: 0.28), value: store.barsHidden)

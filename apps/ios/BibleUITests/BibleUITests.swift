@@ -329,13 +329,24 @@ final class BibleUITests: XCTestCase {
         app.buttons["listenClose"].tap()
     }
 
-    /// Pressing and holding a word opens the card that explains it.
+    /// Pressing and holding a word opens the card that explains that word — not the verse it sits
+    /// in, and not "No definition found" for a word John 1:1 certainly has an entry for.
     func testHoldingAWordOpensItsDefinition() {
         XCTAssertTrue(reference.waitForExistence(timeout: 10))
-        // The middle of the page is a word or two into a verse, whichever verse that is.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45)).press(forDuration: 1.2)
-        let card = app.descendants(matching: .any)["lookupCard"]
-        XCTAssertTrue(card.waitForExistence(timeout: 6), "holding a word opened nothing")
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.32)).press(forDuration: 1.2)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["lookupCard"].waitForExistence(timeout: 6),
+            "holding a word opened nothing")
+        let words = [
+            "In", "the", "beginning", "was", "Word", "and", "with", "God", "All", "things", "made",
+            "him", "life", "light", "darkness", "same", "not", "any", "without",
+        ]
+        XCTAssertTrue(
+            words.contains { app.navigationBars.staticTexts[$0].exists },
+            "the card's title should be one word from the verse, not the whole verse")
+        XCTAssertFalse(
+            app.staticTexts["No definition found"].exists,
+            "a word in John 1:1 should have an entry")
         app.buttons["lookupDone"].tap()
     }
 
@@ -359,6 +370,32 @@ final class BibleUITests: XCTestCase {
         let before = reference.label
         for _ in 0..<12 { app.swipeUp(velocity: .fast) }
         XCTAssertNotEqual(before, reference.label, "the page would not scroll after a lookup")
+    }
+
+    /// Writing a note pauses the reading, and the bar must not ride up the keyboard over the note
+    /// card: its stop button sat exactly where a thumb looks for the card's close button.
+    func testOpeningANotePausesTheReading() {
+        openTheBar()
+        app.buttons["listenPause"].tap()  // play
+        let speaking = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == \"Pause reading\""),
+            object: app.buttons["listenPause"])
+        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 10), .completed, "the reading did not start")
+
+        // A verse, then a note on it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+        XCTAssertTrue(app.buttons["Note"].waitForExistence(timeout: 5), "no Note button to press")
+        app.buttons["Note"].tap()
+
+        XCTAssertFalse(
+            app.buttons["listenPause"].isHittable,
+            "the bar should be behind the note, not floating over it")
+
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 5), "the bar went away")
+        XCTAssertEqual(
+            app.buttons["listenPause"].label, "Resume reading",
+            "a note pauses the reading and leaves Play to the reader")
     }
 
     /// A flick, then a drag straight after it, must not be refused.

@@ -327,7 +327,17 @@ final class Store {
 
     func noteOnSelection() {
         guard let first = selectedRefs.first else { return }
-        sheet = .note(first)
+        openNote(first)
+    }
+
+    /// Writing a note is not listening: the reading pauses, and the bar shows Paused so it is clear
+    /// where it got to. It does not start again by itself when the note closes — Play is the
+    /// reader's to press. (Nobody keeps listening while they write, so they would pause anyway; and
+    /// the bar used to ride up the keyboard above the note card, where its stop button sat where a
+    /// thumb expects the card's close button.) Notes only: the lookup card pauses nothing.
+    func openNote(_ ref: VerseRef) {
+        speaker.pause()
+        sheet = .note(ref)
     }
 
     /// The selected verses as text with their reference, as the Mac copies them.
