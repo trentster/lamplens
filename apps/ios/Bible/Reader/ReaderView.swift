@@ -95,6 +95,11 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     private var travel: CGFloat = 0
     private var accessibilityCache: [UIAccessibilityElement]?
 
+    /// The chapter the accessibility tree was built around, so it can follow the page as it moves.
+    /// A chapter number, not a position in `placed`: prepending and pruning shift the positions while
+    /// the page stays on the same chapter.
+    private var accessibilityAnchor: Int?
+
     private let tileHeight: CGFloat = 256
     private var tileOrigin: CGFloat = 0
     #if DEBUG
@@ -565,6 +570,13 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
     func scrollViewDidScroll(_ scrollView: UIScrollView) {
         let dy = contentOffset.y - lastOffset
         lastOffset = contentOffset.y
+        // The tree covers what is on screen and one chapter either side, so it is rebuilt when a
+        // different chapter comes into view rather than for every point of movement.
+        if let onScreen = indexOfChapterOnScreen(),
+            placed[onScreen].layout.index != accessibilityAnchor
+        {
+            accessibilityCache = nil
+        }
         guard isDragging || isDecelerating else { return }
         if (travel >= 0) != (dy >= 0) { travel = 0 }
         travel += dy
@@ -609,11 +621,29 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
 
     // MARK: Accessibility
 
+    /// The position in `placed` of the first chapter with content on screen, or nil when nothing is
+    /// placed yet. Both the tree itself and the check that keeps it following the page need this.
+    private func indexOfChapterOnScreen() -> Int? {
+        guard !placed.isEmpty else { return nil }
+        let visible = CGRect(origin: contentOffset, size: bounds.size)
+        return placed.firstIndex { $0.y < visible.maxY && $0.maxY > visible.minY } ?? 0
+    }
+
     override var accessibilityElements: [Any]? {
         get {
             if let accessibilityCache { return accessibilityCache }
+            guard let onScreen = indexOfChapterOnScreen() else {
+                accessibilityCache = []
+                return []
+            }
+            // Only the chapters on screen and one either side get elements. The strip holds a
+            // window of chapters above and below the page, and building an element for every verse
+            // in all of them gave VoiceOver a tree to wade through that was mostly off screen.
+            let first = max(0, onScreen - 1)
+            let last = min(placed.count - 1, onScreen + 1)
+            accessibilityAnchor = placed[onScreen].layout.index
             var elements: [UIAccessibilityElement] = []
-            for p in placed {
+            for p in placed[first...last] {
                 let layout = p.layout
                 var chapter: [UIAccessibilityElement] = []
                 for heading in layout.headingElements {
