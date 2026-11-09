@@ -121,8 +121,21 @@ final class Speaker {
 
     /// Play: from the start, or on from a pause.
     func resume() {
+        #if DEBUG
+            Breadcrumbs.mark(
+                "resume asked while \(state.phase), from \(Self.callerFrames(Thread.callStackSymbols, count: 3))"
+            )
+        #endif
         let fromTheStart = state.phase == .ready
-        guard state.play(stopAfter, at: Date()) else { return }
+        guard state.play(stopAfter, at: Date()) else {
+            #if DEBUG
+                Breadcrumbs.mark("resume refused while \(state.phase)")
+            #endif
+            return
+        }
+        #if DEBUG
+            Breadcrumbs.mark("resume: now \(state.phase)")
+        #endif
         if fromTheStart || work == nil {
             work = Task { await run() }
         } else {
@@ -131,7 +144,20 @@ final class Speaker {
     }
 
     func pause() {
-        guard state.pause(at: Date()) else { return }
+        #if DEBUG
+            Breadcrumbs.mark(
+                "pause asked while \(state.phase), from \(Self.callerFrames(Thread.callStackSymbols, count: 3))"
+            )
+        #endif
+        guard state.pause(at: Date()) else {
+            #if DEBUG
+                Breadcrumbs.mark("pause refused while \(state.phase)")
+            #endif
+            return
+        }
+        #if DEBUG
+            Breadcrumbs.mark("pause: now \(state.phase)")
+        #endif
         audio.pause()
     }
 
@@ -411,9 +437,20 @@ final class Speaker {
                 // The player is already paused. A pause by a call holds the timer like any other,
                 // and is the only kind that resumes by itself.
                 self.state.pause(at: Date(), byInterruption: true)
+                #if DEBUG
+                    Breadcrumbs.mark("interruption began, now \(self.state.phase)")
+                #endif
             } else if mayResume, self.state.resumesAfterInterruption {
                 guard self.state.play(self.stopAfter, at: Date()) else { return }
+                #if DEBUG
+                    Breadcrumbs.mark("interruption ended, resuming, now \(self.state.phase)")
+                #endif
                 self.audio.resumeAfterInterruption()
+            } else {
+                #if DEBUG
+                    Breadcrumbs.mark(
+                        "interruption ended, mayResume=\(mayResume), still \(self.state.phase)")
+                #endif
             }
         }
         audio.onHeadphonesOut = { [weak self] in self?.pause() }

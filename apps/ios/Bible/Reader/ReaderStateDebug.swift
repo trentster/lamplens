@@ -27,6 +27,8 @@ enum ReaderStateDebug {
             parts.append(
                 "speaker phase=\(phase) chosen=\(store.speaker.hasChosenVoice) "
                     + "speaking=\(store.speakingVerse.map(String.init) ?? "none") "
+                    + "voiceVerse=\(store.speaker.speaking.map { String($0) } ?? "none") "
+                    + "voiceChapter=\(store.speaker.chapter.map { String($0) } ?? "none") "
                     + "position=\(store.position.chapter):\(store.position.verse)")
         } else {
             parts.append("store not created yet")
