@@ -137,15 +137,31 @@ final class ChapterLayout {
         let glyph = manager.glyphIndex(for: p, in: container)
         let char = manager.characterIndexForGlyph(at: glyph)
         guard char < storage.length else { return nil }
+        let text = storage.string as NSString
         for ranges in words.values {
-            for range in ranges where range.location <= char && char < NSMaxRange(range) {
-                let text = (storage.string as NSString).substring(with: range)
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-                guard text.contains(where: { $0.isLetter }) else { return nil }
-                return (text, range, frame(of: range))
+            for run in ranges where run.location <= char && char < NSMaxRange(run) {
+                // `words` is not a list of words: it is each verse's runs of text, and add() merges
+                // neighbouring runs, so the run holding the finger is usually the whole verse.
+                // Find the single word inside it — .byWords keeps "God's" whole, which is what the
+                // dictionary expects to be asked about.
+                guard let found = Self.word(in: text, at: char, within: run) else { return nil }
+                return (found.word, found.range, frame(of: found.range))
             }
         }
         return nil
+    }
+
+    private static func word(
+        in text: NSString, at char: Int, within run: NSRange
+    ) -> (word: String, range: NSRange)? {
+        var found: (word: String, range: NSRange)?
+        text.enumerateSubstrings(in: run, options: .byWords) { _, range, _, stop in
+            if range.location <= char && char < NSMaxRange(range) {
+                found = (text.substring(with: range), range)
+                stop.pointee = true
+            }
+        }
+        return found
     }
 
     /// Where a range of the text sits, in chapter coordinates.
