@@ -46,25 +46,32 @@ struct RootView: View {
                             .glass(in: Capsule(), theme: theme, interactive: false)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    // The bar stays for as long as the reading is open, whichever way the page is
-                    // scrolled. The toolbar and the status bar may hide for a full page of text; the
-                    // thing that is reading to you may not.
-                    if store.speaker.phase.isOn {
-                        ListeningBar(theme: theme)
-                            .transition(.move(edge: .bottom).combined(with: .opacity))
-                    }
                     if store.selection != nil {
                         SelectionBar(theme: theme)
+                            .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                    // The bar is last, so nothing that opens below it can push it up. The verse menu
+                    // used to sit under it and lift it, which put the bar's stop button exactly
+                    // where a thumb looks for the menu's close button.
+                    //
+                    // It stays for as long as the reading is open, whichever way the page is
+                    // scrolled: the toolbar and status bar may hide for a full page of text, but the
+                    // thing reading to you may not.
+                    if store.speaker.phase.isOn {
+                        ListeningBar(theme: theme)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                 }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 8)
-                // The bar belongs at the bottom of the page, not floating above a keyboard: a sheet
-                // covers it, rather than the bar riding up over the sheet's own controls.
-                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
         }
+        // The bar belongs at the bottom of the page, and a sheet with a keyboard covers it rather
+        // than the bar riding up over the sheet's own controls. This has to be on the outermost view:
+        // the keyboard shrinks the GeometryReader and its overlay rises with it, whatever the content
+        // inside says. Nothing on the root needs keyboard avoidance — the reference field is in the
+        // top bar.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .animation(.smooth(duration: 0.28), value: store.barsHidden)
         .animation(.smooth(duration: 0.28), value: store.selection != nil)
         .animation(.smooth(duration: 0.28), value: store.toast)

@@ -372,33 +372,54 @@ final class BibleUITests: XCTestCase {
         XCTAssertNotEqual(before, reference.label, "the page would not scroll after a lookup")
     }
 
-    /// Writing a note pauses the reading, and the bar must not ride up the keyboard over the note
-    /// card: its stop button sat exactly where a thumb looks for the card's close button.
-    func testOpeningANotePausesTheReading() {
+    /// The verse menu must never move the listening bar. It used to sit under it and push it up,
+    /// which put the bar's stop button (✕) exactly where the menu's close button belongs — that is
+    /// how a reading kept ending when a card opened.
+    func testTheVerseMenuDoesNotMoveTheListeningBar() {
         openTheBar()
         app.buttons["listenPause"].tap()  // play
+        let bar = app.buttons["listenPause"]
         let speaking = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == \"Pause reading\""),
-            object: app.buttons["listenPause"])
+            predicate: NSPredicate(format: "label == \"Pause reading\""), object: bar)
         XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 10), .completed, "the reading did not start")
+        let before = bar.frame
 
-        // A verse, then a note on it.
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
-        XCTAssertTrue(app.buttons["Note"].waitForExistence(timeout: 5), "no Note button to press")
-        app.buttons["Note"].tap()
-
-        XCTAssertFalse(
-            app.buttons["listenPause"].isHittable,
-            "the bar should be behind the note, not floating over it")
-
-        app.buttons["Cancel"].tap()
-        XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 5), "the bar went away")
-        XCTAssertEqual(
-            app.buttons["listenPause"].label, "Resume reading",
-            "a note pauses the reading and leaves Play to the reader")
+        XCTAssertTrue(
+            app.buttons["selectionClose"].waitForExistence(timeout: 5), "no verse menu appeared")
+        XCTAssertEqual(bar.frame, before, "the verse menu moved the listening bar")
+        XCTAssertEqual(bar.label, "Pause reading", "the reading should still be playing")
     }
 
-    /// A flick, then a drag straight after it, must not be refused.
+    /// The verse menu closes on its own button.
+    func testTheVerseMenuCloses() {
+        XCTAssertTrue(reference.waitForExistence(timeout: 10))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+        XCTAssertTrue(app.buttons["selectionClose"].waitForExistence(timeout: 5), "no verse menu")
+        app.buttons["selectionClose"].tap()
+        XCTAssertFalse(
+            app.buttons["selectionClose"].waitForExistence(timeout: 2), "the verse menu stayed open")
+    }
+
+    /// A note leaves the reading alone: it stops only when the reader stops it, as on the Mac.
+    func testANoteLeavesTheReadingPlaying() {
+        openTheBar()
+        app.buttons["listenPause"].tap()  // play
+        let bar = app.buttons["listenPause"]
+        let speaking = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == \"Pause reading\""), object: bar)
+        XCTAssertEqual(XCTWaiter.wait(for: [speaking], timeout: 10), .completed, "the reading did not start")
+
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+        XCTAssertTrue(app.buttons["Note"].waitForExistence(timeout: 5), "no Note button")
+        app.buttons["Note"].tap()
+        XCTAssertTrue(app.buttons["Save"].waitForExistence(timeout: 5), "the note editor did not open")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(bar.waitForExistence(timeout: 5), "the bar went away")
+        XCTAssertEqual(bar.label, "Pause reading", "opening a note stopped the reading")
+    }
+
+    /// A flick, then a drag straight after it, must not be refused.    /// A flick, then a drag straight after it, must not be refused.
     ///
     /// The reader is a UIScrollView and used to be the delegate of its own pan recogniser, so the
     /// check meant for the page tap also governed scrolling: a touch during a fling was refused, the

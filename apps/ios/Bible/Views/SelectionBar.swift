@@ -27,8 +27,12 @@ struct SelectionBar: View {
                         .foregroundStyle(Color(theme.ink2))
                         .frame(width: 30, height: 30)
                         .background(Color(theme.fill), in: Circle())
+                        // A menu that has risen over the page needs a way out big enough to hit.
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
                 }
-                .accessibilityLabel("Clear selection")
+                .accessibilityLabel("Close")
+                .accessibilityIdentifier("selectionClose")
             }
 
             HStack(spacing: 0) {
