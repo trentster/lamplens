@@ -62,6 +62,12 @@ struct ListeningBar: View {
                     if let left = clock {
                         Text(left)
                             .font(.caption.monospacedDigit())
+                    } else if speaker.stopAfter.seconds != nil {
+                        // Nothing is counting down — the bar opens paused — so show what Play will
+                        // arm. A remembered choice you cannot see is a choice you have to guess at.
+                        Text(speaker.stopAfter.title)
+                            .font(.caption)
+                            .lineLimit(1)
                     }
                 }
                 .foregroundStyle(Color(clock == nil ? theme.ink2 : theme.accent))

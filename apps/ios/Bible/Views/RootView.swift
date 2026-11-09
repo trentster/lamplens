@@ -46,7 +46,10 @@ struct RootView: View {
                             .glass(in: Capsule(), theme: theme, interactive: false)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
-                    if store.speaker.phase.isOn, !store.barsHidden {
+                    // The bar stays for as long as the reading is open, whichever way the page is
+                    // scrolled. The toolbar and the status bar may hide for a full page of text; the
+                    // thing that is reading to you may not.
+                    if store.speaker.phase.isOn {
                         ListeningBar(theme: theme)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }

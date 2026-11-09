@@ -73,11 +73,19 @@ final class Speaker {
     var stopAfter: Stop = Stop(rawValue: UserDefaults.standard.string(forKey: "readAloudStop") ?? "") ?? .endOfChapter {
         didSet {
             UserDefaults.standard.set(stopAfter.rawValue, forKey: "readAloudStop")
-            // A timer chosen while the reading is already running starts from now. Without this the
-            // bar showed the choice and no clock, because only `start()` ever set the deadline.
-            if phase.isOn, stopAfter != oldValue {
+            // A timer chosen while the reading is running starts from now. While the reading is
+            // paused the clock stays stopped: the choice is remembered and shown, but Play arms it,
+            // with the full time, exactly as the Mac's resume() does.
+            if phase == .reading, stopAfter != oldValue {
                 held = nil
-        deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
+                deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
+            } else if phase == .paused, stopAfter != oldValue {
+                // A choice made while paused replaces the time that was held, as the Mac's
+                // Reading::choose does when it is not speaking: the full minutes for a timer, and
+                // nothing for End of chapter or Keep reading. Without this, Play after a pause
+                // resumed with the old time and ignored what had just been chosen.
+                held = stopAfter.seconds
+                deadline = nil
             }
         }
     }
@@ -154,10 +162,13 @@ final class Speaker {
         utterances = first.verses
         next = 0
         held = nil
-        deadline = stopAfter.seconds.map { Date().addingTimeInterval($0) }
-        phase = .preparing
+        // Open paused, the way the Mac's Reading::open does: nothing is said and no clock runs until
+        // the reader presses Play. The timer's value is shown on the bar, not started.
+        deadline = nil
+        phase = .paused
         work?.cancel()
-        work = Task { await run() }
+        work = nil
+        updateNowPlaying()
     }
 
     /// What is left on the timer, straight off the clock, or nil when no clock is armed.
@@ -180,14 +191,21 @@ final class Speaker {
 
     func resume() {
         guard phase == .paused else { return }
-        startEngineIfNeeded()
-        player?.play()
-        // Put the deadline back where it was left.
-        if let held {
-            deadline = Date().addingTimeInterval(held)
-            self.held = nil
-        }
         phase = .reading
+        // Back to the time that was held, or — from a standing start — whatever the bar says, which
+        // is what the Mac's resume() does. A paused reading therefore keeps the time it had left.
+        let seconds = held ?? stopAfter.seconds
+        deadline = seconds.map { Date().addingTimeInterval($0) }
+        held = nil
+        updateNowPlaying()
+        if work == nil {
+            // A standing start: the reading begins here, not when Read was tapped, so nothing is
+            // spoken and nothing is counted down before Play.
+            work = Task { await run() }
+        } else {
+            startEngineIfNeeded()
+            player?.play()
+        }
     }
 
     /// Stops and takes the reading down: the page moved, or the reader asked it to.

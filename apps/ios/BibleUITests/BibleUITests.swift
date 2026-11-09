@@ -245,6 +245,90 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(verse("John 1:1").exists)
     }
 
+    /// Tapping Read opens the bar paused, as the Mac's Reading::open does: nothing is said and no
+    /// clock runs until Play. What the timer says is the remembered choice, shown, not started.
+    private func openTheBar() {
+        app.buttons["listen"].tap()
+        if app.buttons["chooseVoice"].waitForExistence(timeout: 4) {
+            app.buttons["chooseVoice"].tap()
+        }
+        XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 15), "the bar did not appear")
+    }
+
+    private func clockValue() -> String {
+        (app.buttons["listenTimer"].value as? String) ?? ""
+    }
+
+    func testReadOpensPausedAndWaitsForPlay() {
+        openTheBar()
+        XCTAssertEqual(
+            app.buttons["listenPause"].label, "Resume reading",
+            "the bar should open paused, showing Play")
+        XCTAssertTrue(app.buttons["listenTimer"].exists, "the timer belongs on the bar")
+        XCTAssertFalse(clockValue().contains(":"), "no clock may run before Play (saw \(clockValue()))")
+    }
+
+    func testPlayStartsTheClockAndChoosingATimerDoesNot() {
+        openTheBar()
+        // Picking a timer while paused records the choice; it must not start the countdown.
+        app.buttons["listenTimer"].tap()
+        XCTAssertTrue(app.buttons["timer-fiveMinutes"].waitForExistence(timeout: 4))
+        app.buttons["timer-fiveMinutes"].tap()
+        XCTAssertFalse(
+            clockValue().contains(":"),
+            "choosing a timer while paused started the clock (saw \(clockValue()))")
+
+        app.buttons["listenPause"].tap()
+        let counting = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS ':'"), object: app.buttons["listenTimer"])
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [counting], timeout: 8), .completed,
+            "Play should start the clock, saw \(clockValue())")
+        app.buttons["listenClose"].tap()
+    }
+
+    /// A timer chosen while paused replaces the time that was held. It used to keep the old one, so
+    /// pausing with 10:00 left and choosing End of chapter still stopped after ten minutes.
+    func testChangingTheTimerWhilePausedReplacesTheHeldTime() {
+        openTheBar()
+        app.buttons["listenTimer"].tap()
+        XCTAssertTrue(app.buttons["timer-fifteenMinutes"].waitForExistence(timeout: 4))
+        app.buttons["timer-fifteenMinutes"].tap()
+
+        app.buttons["listenPause"].tap()
+        let counting = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "value CONTAINS ':'"), object: app.buttons["listenTimer"])
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [counting], timeout: 8), .completed,
+            "the clock should be running, saw \(clockValue())")
+
+        // Pause with time on the clock, then change the choice.
+        app.buttons["listenPause"].tap()
+        app.buttons["listenTimer"].tap()
+        XCTAssertTrue(app.buttons["timer-endOfChapter"].waitForExistence(timeout: 4))
+        app.buttons["timer-endOfChapter"].tap()
+
+        app.buttons["listenPause"].tap()
+        let noClock = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "NOT (value CONTAINS ':')"), object: app.buttons["listenTimer"])
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [noClock], timeout: 4), .completed,
+            "End of chapter must leave no clock running, saw \(clockValue())")
+        app.buttons["listenClose"].tap()
+    }
+
+    /// The Mac keeps the listening bar on screen whichever way the page is scrolled, and the phone
+    /// used to hide it with the toolbar.
+    func testTheListeningBarStaysVisibleWhileScrolling() {
+        openTheBar()
+        app.swipeUp(velocity: .fast)
+        app.swipeUp(velocity: .fast)
+        let timer = app.buttons["listenTimer"]
+        XCTAssertTrue(timer.waitForExistence(timeout: 5), "the listening bar went with the toolbar")
+        XCTAssertTrue(timer.isHittable, "the timer should still be tappable with the bars hidden")
+        app.buttons["listenClose"].tap()
+    }
+
     /// A flick, then a drag straight after it, must not be refused.
     ///
     /// The reader is a UIScrollView and used to be the delegate of its own pan recogniser, so the
@@ -286,12 +370,22 @@ final class BibleUITests: XCTestCase {
         if app.buttons["chooseVoice"].waitForExistence(timeout: 4) {
             app.buttons["chooseVoice"].tap()
         }
-        XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 15), "the reading did not start")
+        let pause = app.buttons["listenPause"]
+        XCTAssertTrue(pause.waitForExistence(timeout: 15), "the bar did not appear")
+        // The bar opens paused, so start the reading: this test guards Mark's original report — the
+        // page would not scroll while the voice was actually speaking.
+        pause.tap()
+        let speaking = XCTNSPredicateExpectation(
+            predicate: NSPredicate(format: "label == \"Pause reading\""), object: pause)
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [speaking], timeout: 10), .completed, "the reading did not start")
+
         let before = reference.label
         for _ in 0..<12 { app.swipeUp(velocity: .fast) }
         XCTAssertNotEqual(before, reference.label, "the page would not scroll while a reading was running")
-        // Turning the page stops the reading; the bar goes with it.
-        XCTAssertFalse(app.buttons["listenPause"].exists, "the reading should have stopped when the page turned")
+        // The bar stays for as long as the reading is open: only the toolbar hides for full-page text.
+        XCTAssertTrue(pause.exists, "the listening bar went with the toolbar")
+        app.buttons["listenClose"].tap()
     }
 
     func testScrollingDoesNotHitch() {
@@ -399,19 +493,19 @@ final class BibleUITests: XCTestCase {
             "the voice ships in the app, so there is nothing to download"
         )
         app.buttons["chooseVoice"].tap()
-        XCTAssertTrue(
-            app.buttons["listenPause"].waitForExistence(timeout: 10),
-            "choosing a voice should start reading"
-        )
+        let play = app.buttons["listenPause"]
+        XCTAssertTrue(play.waitForExistence(timeout: 10), "choosing a voice should open the bar")
+        XCTAssertEqual(
+            play.label, "Resume reading",
+            "choosing a voice should open the bar paused, so nothing is said before Play")
     }
 
     /// A timer chosen while the reading is already running has to start then: the bar used to show
     /// the choice with no clock, because only starting a reading ever set the deadline.
     func testChoosingATimerWhileListeningStartsTheClock() {
-        app.buttons["listen"].tap()
-        if app.buttons["chooseVoice"].waitForExistence(timeout: 3) {
-            app.buttons["chooseVoice"].tap()
-        }
+        openTheBar()
+        // The bar opens paused; a timer chosen once the reading is running starts from that moment.
+        app.buttons["listenPause"].tap()
         let timer = app.buttons["listenTimer"]
         XCTAssertTrue(timer.waitForExistence(timeout: 10), "no listening bar to time")
         timer.tap()
