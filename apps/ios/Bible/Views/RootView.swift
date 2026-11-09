@@ -147,13 +147,15 @@ struct TopBar: View {
                 } label: {
                     // The full name if it fits, otherwise the short form: the chapter is never
                     // dropped, because where you are is the point of the control.
+                    // Each child measures its own natural width, so ViewThatFits picks the first
+                    // that fits the width actually offered. fixedSize on the container instead
+                    // handed it an unlimited proposal, which made the full name always "fit".
                     ViewThatFits(in: .horizontal) {
-                        Text(place.full)
-                        Text(place.short)
+                        Text(place.full).fixedSize()
+                        Text(place.short).fixedSize()
                     }
                     .font(.headline)
                     .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
                     .padding(.leading, 16)
                     .padding(.trailing, 10)
                     .frame(minHeight: 44)
@@ -178,6 +180,9 @@ struct TopBar: View {
                 } label: {
                     Text(store.translation?.abbrev ?? "")
                         .font(.subheadline.weight(.semibold))
+                        // A badge that wraps is not a badge: KJV must stay on one line.
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.leading, 10)
                         .padding(.trailing, 16)
                         .frame(minHeight: 44)
@@ -197,6 +202,8 @@ struct TopBar: View {
                 tool("bookmark", "Bookmarks, highlights and notes", id: "study") { store.sheet = .study }
             }
             .padding(.horizontal, 4)
+            // The four tools keep their room; the reference takes what is left.
+            .fixedSize()
             .glass(in: Capsule(), theme: theme)
         }
         .padding(.horizontal, 16)
