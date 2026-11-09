@@ -245,6 +245,33 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(verse("John 1:1").exists)
     }
 
+    /// A flick, then a drag straight after it, must not be refused.
+    ///
+    /// The reader is a UIScrollView and used to be the delegate of its own pan recogniser, so the
+    /// check meant for the page tap also governed scrolling: a touch during a fling was refused, the
+    /// scroll view was left dragging and decelerating with the pan at .possible, and every drag after
+    /// that did nothing. Once wedged it stays wedged, so one refused touch is enough to fail.
+    ///
+    /// The reference label names the chapter only, so this runs in the Psalms, where a round of
+    /// swipes is certain to cross a boundary — the page has to move on every single round.
+    func testAFlickThenADragIsNotRefused() {
+        reference.tap()
+        let field = app.searchFields.firstMatch
+        XCTAssertTrue(field.waitForExistence(timeout: 3))
+        field.tap()
+        field.typeText("ps 23\n")
+        expectChapter("Psalm 23")
+
+        for round in 1...5 {
+            let before = reference.label
+            // No waiting between them: the later swipes land while the page is still coasting.
+            app.swipeUp(velocity: .fast)
+            app.swipeUp(velocity: .fast)
+            app.swipeUp(velocity: .fast)
+            XCTAssertNotEqual(before, reference.label, "the page stopped answering drags on round \(round)")
+        }
+    }
+
     /// The baseline the reading test is measured against: an ordinary page scrolls.
     func testThePageScrollsWithNoReading() {
         let before = reference.label
