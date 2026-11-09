@@ -240,6 +240,15 @@ final class Store {
 
     var title: String { chapterLabel(index: UInt16(position.chapter)) }
 
+    /// Where the page is, as a place: book and chapter, never a verse — the Mac labels places the
+    /// same way. The short form is the core's own SBL abbreviation, for when the full name does not
+    /// fit. "Where am I" is the most important thing on the screen, so it is never an ellipsis.
+    var placeTitle: (full: String, short: String) {
+        let book = book(of: position.chapter)
+        let chapter = position.chapter - Int(book.firstChapter) + 1
+        return ("\(book.name) \(chapter)", "\(book.abbrev) \(chapter)")
+    }
+
     // MARK: Moving
 
     func go(to chapter: Int, verse: Int = 1, flash: Bool = false, animated: Bool = false) {

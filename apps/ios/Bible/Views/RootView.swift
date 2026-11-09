@@ -139,19 +139,27 @@ struct TopBar: View {
     let theme: Theme
 
     var body: some View {
-        HStack(spacing: 10) {
+        let place = store.placeTitle
+        return HStack(spacing: 10) {
             HStack(spacing: 0) {
                 Button {
                     store.sheet = .books
                 } label: {
-                    Text(store.title)
-                        .font(.headline)
-                        .lineLimit(1)
-                        .padding(.leading, 16)
-                        .padding(.trailing, 10)
-                        .frame(minHeight: 44)
+                    // The full name if it fits, otherwise the short form: the chapter is never
+                    // dropped, because where you are is the point of the control.
+                    ViewThatFits(in: .horizontal) {
+                        Text(place.full)
+                        Text(place.short)
+                    }
+                    .font(.headline)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .padding(.leading, 16)
+                    .padding(.trailing, 10)
+                    .frame(minHeight: 44)
                 }
-                .accessibilityLabel("\(store.title). Choose a book and chapter")
+                // VoiceOver says the whole name: it should never read "Matt".
+                .accessibilityLabel("\(place.full). Choose a book and chapter")
                 .accessibilityIdentifier("reference")
 
                 Rectangle()
