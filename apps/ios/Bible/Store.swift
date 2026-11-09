@@ -215,7 +215,9 @@ final class Store {
     // MARK: Moving
 
     func go(to chapter: Int, verse: Int = 1, flash: Bool = false, animated: Bool = false) {
-        stopReading()
+        // The Mac stops a reading only when the page leaves the chapter being read (Listen::leaving).
+        // A jump inside it — a search hit, a reference, a related verse — leaves the reading going.
+        if speaker.chapter != chapter { stopReading() }
         selection = nil
         showBars()
         position = Position(chapter: chapter, verse: verse)
