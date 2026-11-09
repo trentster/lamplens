@@ -47,6 +47,7 @@ struct ListeningBar: View {
                 Text(status)
                     .font(.caption2)
                     .foregroundStyle(Color(theme.ink2))
+                    .lineLimit(1)
             }
             .accessibilityElement(children: .combine)
 
@@ -60,22 +61,20 @@ struct ListeningBar: View {
                 HStack(spacing: 5) {
                     Image(systemName: "timer")
                         .font(.system(size: 15, weight: .medium))
-                    if let left = clock {
-                        Text(left)
-                            .font(.caption.monospacedDigit())
-                    } else if speaker.stopAfter.seconds != nil {
-                        // Nothing is counting down — the bar opens paused — so show what Play will
-                        // arm. A remembered choice you cannot see is a choice you have to guess at.
-                        Text(speaker.stopAfter.title)
-                            .font(.caption)
-                            .lineLimit(1)
-                    }
+                    // The label is always there: the countdown while a timer runs, and otherwise
+                    // what is in force — End of chapter, Keep reading, or the minutes Play will arm.
+                    // An unnamed stopwatch was a control you had to guess at.
+                    Text(clock ?? speaker.stopAfter.title)
+                        .font(clock == nil ? .caption2 : .caption.monospacedDigit())
+                        .lineLimit(1)
                 }
                 .foregroundStyle(Color(clock == nil ? theme.ink2 : theme.accent))
                 .padding(.horizontal, 6)
                 .frame(height: 36)
                 .contentShape(Rectangle())
             }
+            // The timer keeps its room; it is the reference that truncates on a small screen.
+            .layoutPriority(1)
             .accessibilityLabel("Stop after")
             .accessibilityValue(clock ?? speaker.stopAfter.title)
             .accessibilityIdentifier("listenTimer")
