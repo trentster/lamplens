@@ -93,6 +93,12 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         /// Layout passes and refused shifts, so the trail shows churn rather than guessing at it.
         private(set) var fillPasses = 0
         private(set) var shiftRefusals = 0
+        /// Writes to the scroll view's own state, and reparenting, which can cancel a gesture.
+        private(set) var offsetWrites = 0
+        private(set) var insetWrites = 0
+        private(set) var sizeWrites = 0
+        private(set) var enableWrites = 0
+        private(set) var windowMoves = 0
     #endif
     private var tiles: [Int: Tile] = [:]
     private var spareTiles: [Tile] = []
@@ -121,10 +127,77 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate, UIGestureRecognizerD
         tap.delegate = self
         addGestureRecognizer(tap)
         isAccessibilityElement = false
+        #if DEBUG
+            panGestureRecognizer.addTarget(self, action: #selector(panStateChanged(_:)))
+        #endif
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    #if DEBUG
+        /// Every state the pan goes through. A jump back to `.possible` mid-drag is the freeze.
+        @objc private func panStateChanged(_ gesture: UIGestureRecognizer) {
+            let name: String
+            switch gesture.state {
+            case .possible: name = "possible"
+            case .began: name = "began"
+            case .changed: name = "changed"
+            case .ended: name = "ended"
+            case .cancelled: name = "cancelled"
+            case .failed: name = "failed"
+            @unknown default: name = "unknown"
+            }
+            Breadcrumbs.mark("pan \(name) offset=\(Int(contentOffset.y))")
+        }
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            windowMoves += 1
+            Breadcrumbs.mark("moved to window (\(window == nil ? "gone" : "in"))")
+        }
+
+        override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+            Breadcrumbs.mark("touches cancelled")
+            super.touchesCancelled(touches, with: event)
+        }
+
+        override func setContentOffset(_ contentOffset: CGPoint, animated: Bool) {
+            offsetWrites += 1
+            if animated { Breadcrumbs.mark("setContentOffset(animated) to \(Int(contentOffset.y))") }
+            super.setContentOffset(contentOffset, animated: animated)
+        }
+
+        override var contentInset: UIEdgeInsets {
+            didSet {
+                insetWrites += 1
+                if contentInset != oldValue { Breadcrumbs.mark("contentInset \(Int(oldValue.top)) -> \(Int(contentInset.top))") }
+            }
+        }
+
+        override var contentSize: CGSize {
+            didSet { sizeWrites += 1 }
+        }
+
+        override var isScrollEnabled: Bool {
+            didSet {
+                enableWrites += 1
+                if isScrollEnabled != oldValue { Breadcrumbs.mark("isScrollEnabled = \(isScrollEnabled)") }
+            }
+        }
+
+        func scrollViewWillBeginDragging(_ scrollView: UIScrollView) {
+            Breadcrumbs.mark("drag began")
+        }
+
+        func scrollViewDidEndDragging(_ scrollView: UIScrollView, willDecelerate decelerate: Bool) {
+            Breadcrumbs.mark("drag ended, willDecelerate=\(decelerate)")
+        }
+
+        func scrollViewDidEndDecelerating(_ scrollView: UIScrollView) {
+            Breadcrumbs.mark("deceleration ended offset=\(Int(contentOffset.y))")
+        }
+    #endif
 
     // MARK: Configuration
 
@@ -604,7 +677,9 @@ extension ReaderView {
         size=\(n(contentSize.height)) insetTop=\(n(contentInset.top)) tracking=\(isTracking) \
         dragging=\(isDragging) decelerating=\(isDecelerating) enabled=\(isScrollEnabled) \
         pan=\(pan) tileOrigin=\(n(tileOrigin)) placed=[\(chapters)] tiles=[\(tileText)] jump=\(jump) \
-        fillPasses=\(fillPasses) refusedShifts=\(shiftRefusals) ahead=\(ahead.keys.sorted())
+        fillPasses=\(fillPasses) refusedShifts=\(shiftRefusals) ahead=\(ahead.keys.sorted()) \
+        writes=offset\(offsetWrites)/inset\(insetWrites)/size\(sizeWrites)/enable\(enableWrites) \
+        windowMoves=\(windowMoves)
         """
     }
 }
