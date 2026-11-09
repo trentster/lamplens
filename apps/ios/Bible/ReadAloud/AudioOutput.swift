@@ -96,7 +96,10 @@ final class AudioOutput {
             try? await Task.sleep(nanoseconds: 50_000_000)
             waited += 50
         }
-        guard engine?.isRunning == true else { return }
+        guard engine?.isRunning == true else {
+            Breadcrumbs.mark("play gave up: the engine did not come back after \(waited) ms")
+            return
+        }
         Breadcrumbs.mark("scheduling \(samples.count) samples")
         await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
             player.scheduleBuffer(buffer) { done.resume() }

@@ -142,6 +142,14 @@ final class Speaker {
 
     /// Stops and takes the reading down: the page moved, or the reader asked it to.
     func stop() {
+        #if DEBUG
+            // Closing a note ends the reading on the phone, and nothing in the note code calls stop().
+            // Record who does, so the trail names the caller instead of the symptom.
+            if state.phase.isOn {
+                Breadcrumbs.mark(
+                    "stop while \(state.phase) from \(Self.callerFrames(Thread.callStackSymbols))")
+            }
+        #endif
         silence()
         synth = nil
         utterances = []
@@ -151,6 +159,17 @@ final class Speaker {
         state.close()
         NowPlaying.clear()
     }
+
+    #if DEBUG
+        /// The few frames above `stop()`, trimmed to the function names. A symbol line reads
+        /// "2   Bible.debug.dylib   0x0000000104a1b2c3 Speaker.stop() + 12".
+        private static func callerFrames(_ symbols: [String], count: Int = 4) -> String {
+            symbols.dropFirst().prefix(count).map { line in
+                let parts = line.split(separator: " ", omittingEmptySubsequences: true)
+                return parts.count >= 4 ? String(parts[3]) : line
+            }.joined(separator: " < ")
+        }
+    #endif
 
     /// Ends the loop and the sound, leaving everything else as it is.
     private func silence() {
@@ -219,16 +238,25 @@ final class Speaker {
     // MARK: - The loop
 
     private func run() async {
-        guard let synth = await openVoice(), !Task.isCancelled else { return }
+        guard let synth = await openVoice(), !Task.isCancelled else {
+            Breadcrumbs.mark("run ended: no voice, or cancelled before it opened")
+            return
+        }
         var job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
         while !Task.isCancelled {
             if next >= utterances.count {
                 // The chapter is finished. Keep reading walks into the next one; anything else stops
                 // here. A loop, not a call back into run(): an all-night reading would otherwise
                 // stack a frame per chapter until the thread gave out.
-                guard stopAfter == .keepReading, let chapter, let provider else { break }
+                guard stopAfter == .keepReading, let chapter, let provider else {
+                    Breadcrumbs.mark("run ended: chapter finished, stopAfter=\(stopAfter.rawValue)")
+                    break
+                }
                 let following = provider(chapter + 1, nil)
-                guard !following.verses.isEmpty else { break }
+                guard !following.verses.isEmpty else {
+                    Breadcrumbs.mark("run ended: the next chapter has nothing to read")
+                    break
+                }
                 self.chapter = following.chapter
                 utterances = following.verses
                 next = 0
@@ -240,14 +268,21 @@ final class Speaker {
             do {
                 pcm = try await (job ?? makeSamples(utterance.text, synth: synth)).value
             } catch {
-                guard !Task.isCancelled else { return }
+                guard !Task.isCancelled else {
+                    Breadcrumbs.mark("run ended: cancelled while making samples")
+                    return
+                }
                 audio.stop()
+                Breadcrumbs.mark("run ended: the voice failed")
                 state.fail(.noVoice)
                 return
             }
             // A pause pressed while this sentence was being made holds it here, before any sound.
             // The loop never sets the phase itself: only Play and Pause do.
-            guard await mayPlay() else { return }
+            guard await mayPlay() else {
+                Breadcrumbs.mark("run ended: mayPlay said no while \(state.phase)")
+                return
+            }
             // The clock may fall inside this sentence: say only as far as it allows and fade the
             // last second, so a timer ends the reading instead of cutting it off. The Mac does the
             // same in `play_piece`, at 0.9 s.
@@ -269,14 +304,24 @@ final class Speaker {
             // Start the next one before this one is played: synthesis takes a fifth of a second a
             // verse, and a phone with its screen off has no other work to hide it behind.
             job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled else {
+                Breadcrumbs.mark("run ended: cancelled after making samples")
+                return
+            }
             await audio.play(pcm)
-            if endsTheReading { break }
+            if endsTheReading {
+                Breadcrumbs.mark("run ended: the timer ran out inside a sentence")
+                break
+            }
             if utterance.pauseMs > 0, !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(utterance.pauseMs) * 1_000_000)
             }
         }
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled else {
+            Breadcrumbs.mark("run ended: cancelled at the end of the loop")
+            return
+        }
+        Breadcrumbs.mark("run ended: the loop finished, closing the reading")
         stop()
     }
 
