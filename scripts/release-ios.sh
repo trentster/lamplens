@@ -9,7 +9,7 @@
 #                                      # App Review); the app's record must exist there first
 #   scripts/release-ios.sh --unsigned  # archive without signing, to check the release build
 #
-#   TEAM_ID        team to sign for, default 5S3KCRYBD2 (Fabrika LLC, as on the Mac)
+#   TEAM_ID        team to sign for. Required: it is your own team, not anyone else's.
 #   BUILD_NUMBER   CFBundleVersion, default the commit count; each upload needs a higher one
 #   ASC_KEY_PATH, ASC_KEY_ID, ASC_ISSUER_ID
 #                  an App Store Connect API key (the .p8 file, its key ID and the issuer ID),
@@ -49,7 +49,11 @@ if [[ "$UNSIGNED" == 0 && -z "${ALLOW_DIRTY:-}" && -n "$(git status --porcelain)
   die "the working tree has uncommitted changes; commit them, or set ALLOW_DIRTY=1"
 fi
 
-TEAM_ID="${TEAM_ID:-5S3KCRYBD2}"
+if [ -z "${TEAM_ID:-}" ]; then
+  echo "release-ios.sh: set TEAM_ID to your own Apple team identifier." >&2
+  echo "It signs the build; there is no default, and it must not be someone else's team." >&2
+  exit 1
+fi
 OUT="dist/ios"
 ARCHIVE="$OUT/Bible.xcarchive"
 AUTH=()
