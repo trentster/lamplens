@@ -250,7 +250,9 @@ final class Store {
     var placeTitle: (full: String, short: String) {
         let book = book(of: position.chapter)
         let chapter = position.chapter - Int(book.firstChapter) + 1
-        return ("\(book.name) \(chapter)", "\(book.abbrev) \(chapter)")
+        // The full name comes from chapterLabel, which is what this app has always said
+        // ("Psalm 23", not the core's plural "Psalms 23"); the short form is the core's abbreviation.
+        return (title, "\(book.abbrev) \(chapter)")
     }
 
     // MARK: Moving
