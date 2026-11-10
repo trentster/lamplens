@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct RootView: View {
     @Environment(Store.self) private var store
@@ -138,6 +139,39 @@ struct TopBar: View {
     @Environment(Store.self) private var store
     let theme: Theme
 
+    @State private var topWidth: CGFloat = 0
+    @State private var toolsWidth: CGFloat = 0
+    @State private var badgeWidth: CGFloat = 0
+
+    /// This view's own numbers, named once: the reference's leading and trailing padding, the
+    /// separator between it and the badge, and the outer stack's spacing.
+    private static let refLeading: CGFloat = 16
+    private static let refTrailing: CGFloat = 10
+    private static let ruleWidth: CGFloat = 1
+    private static let stackSpacing: CGFloat = 10
+
+    /// What the reference's text may use.
+    private var room: CGFloat {
+        topWidth - toolsWidth - badgeWidth - Self.ruleWidth
+            - Self.refLeading - Self.refTrailing - Self.stackSpacing * 2
+    }
+
+    /// The full name if it fits, otherwise the short form. Deterministic: ViewThatFits was never
+    /// offered the width that was really there, so in landscape it chose the short form with room
+    /// to spare.
+    private var placeText: String {
+        let place = store.placeTitle
+        guard room > 0 else { return place.short }
+        return Self.width(of: place.full) <= room ? place.full : place.short
+    }
+
+    /// The width this text takes in the font the label draws it in, Dynamic Type included.
+    private static func width(of text: String) -> CGFloat {
+        let base = UIFont.preferredFont(forTextStyle: .subheadline)
+        let font = UIFont.systemFont(ofSize: base.pointSize, weight: .semibold)
+        return (text as NSString).size(withAttributes: [.font: font]).width
+    }
+
     var body: some View {
         let place = store.placeTitle
         return HStack(spacing: 10) {
@@ -150,11 +184,10 @@ struct TopBar: View {
                     // Each child measures its own natural width, so ViewThatFits picks the first
                     // that fits the width actually offered. fixedSize on the container instead
                     // handed it an unlimited proposal, which made the full name always "fit".
-                    ViewThatFits(in: .horizontal) {
-                        Text(place.full).fixedSize()
-                        Text(place.short).fixedSize()
-                    }
-                    .font(.headline)
+                    Text(placeText)
+                    // The badge's own style, one step down from .headline, so the pill reads as one
+                    // control and a narrow phone gives the reference back a character's room.
+                    .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
                     .padding(.leading, 16)
                     .padding(.trailing, 10)
@@ -183,6 +216,7 @@ struct TopBar: View {
                         // A badge that wraps is not a badge: KJV must stay on one line.
                         .lineLimit(1)
                         .fixedSize()
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { badgeWidth = $0 }
                         .padding(.leading, 10)
                         .padding(.trailing, 16)
                         .frame(minHeight: 44)
@@ -191,6 +225,9 @@ struct TopBar: View {
                 .accessibilityIdentifier("translation")
             }
             .foregroundStyle(Color(theme.ink))
+            // Offered its room before the Spacer takes any of it, so a narrow phone gives the
+            // reference every point there is rather than a share.
+            .layoutPriority(1)
             .glass(in: Capsule(), theme: theme)
 
             Spacer(minLength: 0)
@@ -204,9 +241,11 @@ struct TopBar: View {
             .padding(.horizontal, 4)
             // The four tools keep their room; the reference takes what is left.
             .fixedSize()
+            .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { toolsWidth = $0 }
             .glass(in: Capsule(), theme: theme)
         }
         .padding(.horizontal, 16)
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { topWidth = $0 }
     }
 
     /// Read Aloud: one button that starts and stops, and opens its own panel on a long press.
