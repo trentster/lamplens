@@ -35,6 +35,18 @@ enum ReadAloudStop: String, CaseIterable, Identifiable {
         case .twoHours: 2 * 60 * 60
         }
     }
+
+    /// Whether a reading walks on into the next chapter when this one ends. "Keep reading" always
+    /// does and "End of chapter" never does; a timer does while it still has time left, so it is a
+    /// sleep timer and not a cap: fifteen minutes on a four-minute chapter reads for fifteen minutes.
+    /// The Mac's `carry_on` in `read_aloud/reading.rs`.
+    func carriesOn(timeLeft: TimeInterval?) -> Bool {
+        switch self {
+        case .keepReading: true
+        case .endOfChapter: false
+        default: (timeLeft ?? 0) > 0
+        }
+    }
 }
 
 /// The sleep timer's clock: idle, running towards a moment, or held with time left while the

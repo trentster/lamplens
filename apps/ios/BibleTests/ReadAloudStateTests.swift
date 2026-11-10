@@ -211,6 +211,41 @@ final class ReadAloudStateTests: XCTestCase {
         XCTAssertEqual(state.status(hasSpoken: false), "Nothing here to read")
     }
 
+    // MARK: The end of a chapter
+
+    /// Keep reading walks into the next chapter whatever the clock says: it has no clock.
+    func testKeepReadingAlwaysCarriesOn() {
+        XCTAssertTrue(ReadAloudStop.keepReading.carriesOn(timeLeft: nil))
+        XCTAssertTrue(ReadAloudStop.keepReading.carriesOn(timeLeft: 0))
+    }
+
+    /// End of chapter means exactly that, even if a clock somehow had time on it.
+    func testEndOfChapterNeverCarriesOn() {
+        XCTAssertFalse(ReadAloudStop.endOfChapter.carriesOn(timeLeft: nil))
+        XCTAssertFalse(ReadAloudStop.endOfChapter.carriesOn(timeLeft: 600))
+    }
+
+    /// A timer is a sleep timer, not a cap: with four minutes left when Matthew 16 ends, the reading
+    /// goes on into Matthew 17. Only a clock that has run out, or none at all, stops it. The Mac's
+    /// `carry_on`.
+    func testATimerCarriesOnWhileItHasTimeLeft() {
+        let timers = ReadAloudStop.allCases.filter { $0.seconds != nil }
+        XCTAssertEqual(timers.count, 6)
+        for stop in timers {
+            XCTAssertTrue(stop.carriesOn(timeLeft: 240), "\(stop) with time left")
+            XCTAssertFalse(stop.carriesOn(timeLeft: 0), "\(stop) with its time up")
+            XCTAssertFalse(stop.carriesOn(timeLeft: nil), "\(stop) with no clock")
+        }
+    }
+
+    /// The rule reads the same clock the bar shows: a timer chosen and played with five minutes
+    /// still has time to carry on when a short chapter ends a minute in.
+    func testAPlayingTimerStillHasTimeAtAShortChaptersEnd() {
+        let state = playing(.fiveMinutes)
+        XCTAssertTrue(ReadAloudStop.fiveMinutes.carriesOn(timeLeft: state.clock.remaining(at: at(60))))
+        XCTAssertFalse(ReadAloudStop.fiveMinutes.carriesOn(timeLeft: state.clock.remaining(at: at(300))))
+    }
+
     // MARK: The timer menu's rows
 
     func testTheMenuHasTheMacsEightRowsInOrder() {

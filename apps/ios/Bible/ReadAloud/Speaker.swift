@@ -276,11 +276,13 @@ final class Speaker {
         var job = next < utterances.count ? makeSamples(utterances[next].text, synth: synth) : nil
         while !Task.isCancelled {
             if next >= utterances.count {
-                // The chapter is finished. Keep reading walks into the next one; anything else stops
-                // here. A loop, not a call back into run(): an all-night reading would otherwise
-                // stack a frame per chapter until the thread gave out.
-                guard stopAfter == .keepReading, let chapter, let provider else {
-                    Breadcrumbs.mark("run ended: chapter finished, stopAfter=\(stopAfter.rawValue)")
+                // The chapter is finished. Keep reading walks into the next one, and so does a timer
+                // with time still on it (`ReadAloudStop.carriesOn`); End of chapter stops here. A loop,
+                // not a call back into run(): an all-night reading would otherwise stack a frame per
+                // chapter until the thread gave out.
+                guard stopAfter.carriesOn(timeLeft: remaining), let chapter, let provider else {
+                    Breadcrumbs.mark(
+                        "run ended: chapter finished, stopAfter=\(stopAfter.rawValue), left=\(remaining.map { String(Int($0)) } ?? "none")")
                     break
                 }
                 let following = provider(chapter + 1, nil)
