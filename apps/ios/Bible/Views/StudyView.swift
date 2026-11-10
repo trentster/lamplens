@@ -71,7 +71,7 @@ struct StudyView: View {
     private var empty: some View {
         let (title, symbol, hint): (String, String, String) =
             switch kind {
-            case .bookmarks: ("No bookmarks", "bookmark", "Tap a verse, then Bookmark.")
+            case .bookmarks: ("No bookmarks", "bookmark", "Tap a verse, then Save.")
             case .highlights: ("No highlights", "highlighter", "Tap a verse, then pick a colour.")
             case .notes: ("No notes", "note.text", "Tap a verse, then Note.")
             }

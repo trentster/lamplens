@@ -71,9 +71,10 @@ struct SelectionBar: View {
 
             HStack(spacing: 8) {
                 action("Note", "note.text.badge.plus") { store.noteOnSelection() }
-                action(bookmarked ? "Saved" : "Bookmark", bookmarked ? "bookmark.fill" : "bookmark") {
+                action(bookmarked ? "Saved" : "Save", bookmarked ? "bookmark.fill" : "bookmark") {
                     store.toggleBookmarkOnSelection()
                 }
+                .accessibilityLabel(bookmarked ? "Remove bookmark" : "Bookmark")
                 action("Copy", "doc.on.doc") { store.copySelection() }
                 ShareLink(item: store.selectionText, subject: Text(store.selectionLabel)) {
                     label("Share", "square.and.arrow.up")
@@ -104,6 +105,8 @@ struct SelectionBar: View {
                 .frame(height: 22)
             Text(title)
                 .font(.caption.weight(.medium))
+                // No label may wrap: "Bookmark" broke onto two lines on a 12 Pro.
+                .lineLimit(1)
         }
         .foregroundStyle(Color(theme.ink))
         .frame(maxWidth: .infinity, minHeight: 52)
