@@ -16,22 +16,7 @@ struct WordsSheet: View {
         NavigationStack {
             Group {
                 if let verse, !verse.words.isEmpty {
-                    List {
-                        Section {
-                            ForEach(Array(verse.words.enumerated()), id: \.offset) { _, word in
-                                NavigationLink {
-                                    EntryView(word: word, theme: theme)
-                                } label: {
-                                    wordRow(word)
-                                }
-                            }
-                        } footer: {
-                            Text(store.wordsCreditLine)
-                                .font(.caption)
-                                .foregroundStyle(Color(theme.ink3))
-                        }
-                    }
-                    .listStyle(.insetGrouped)
+                    OriginalWordsList(verse: verse, theme: theme)
                 } else {
                     ContentUnavailableView {
                         Label("No original text", systemImage: "text.book.closed")
@@ -57,6 +42,35 @@ struct WordsSheet: View {
         return "\(language) · \(label)"
     }
 
+}
+
+/// The words of one verse, with how each sounds and the gloss translators give it, and the credit at
+/// the foot. Shared by the verse menu's Words button and the definition card's original-words row,
+/// so the two never drift apart.
+struct OriginalWordsList: View {
+    @Environment(Store.self) private var store
+    let verse: OriginalVerse
+    let theme: Theme
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(Array(verse.words.enumerated()), id: \.offset) { _, word in
+                    NavigationLink {
+                        EntryView(word: word, theme: theme)
+                    } label: {
+                        wordRow(word)
+                    }
+                }
+            } footer: {
+                Text(store.wordsCreditLine)
+                    .font(.caption)
+                    .foregroundStyle(Color(theme.ink3))
+            }
+        }
+        .listStyle(.insetGrouped)
+    }
+
     private func wordRow(_ word: OriginalWord) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Text(word.surface)
@@ -78,7 +92,7 @@ struct WordsSheet: View {
 }
 
 /// One lexicon entry: the number, the word, and its definition line by line.
-private struct EntryView: View {
+struct EntryView: View {
     @Environment(Store.self) private var store
     let word: OriginalWord
     let theme: Theme
