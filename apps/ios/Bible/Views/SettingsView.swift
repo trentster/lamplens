@@ -139,19 +139,8 @@ struct ReadAloudSettings: View {
 
     var body: some View {
         List {
-            Section {
-                Button {
-                    store.toggleReading()
-                } label: {
-                    Label(speaker.phase.isOn ? "Stop reading" : "Start reading",
-                          systemImage: speaker.phase.isOn ? "stop.fill" : "play.fill")
-                }
-                if let verse = speaker.speaking, let chapter = speaker.chapter {
-                    LabeledContent("Speaking") {
-                        Text("\(chapterLabel(index: UInt16(chapter))):\(verse)")
-                    }
-                }
-            }
+            // Settings are for choosing, not doing. The Mac's Read aloud tab has no Start button,
+            // and since Read opens paused this one only opened a paused bar behind the sheet.
             VoiceList()
         }
         .navigationTitle("Read aloud")
