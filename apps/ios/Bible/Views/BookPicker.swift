@@ -10,7 +10,13 @@ struct BookPicker: View {
 
     @State private var path = NavigationPath()
     @State private var query = ""
-    @State private var testament = true
+    /// nil until the reader works the control: the first render is already the testament they are
+    /// reading, so the list they land in is the one holding their place.
+    @State private var chosenTestament: Bool?
+
+    private var testament: Bool {
+        chosenTestament ?? store.book(of: store.position.chapter).newTestament
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -31,7 +37,6 @@ struct BookPicker: View {
                         }
                 }
         }
-        .onAppear { testament = store.book(of: store.position.chapter).newTestament }
     }
 
     // MARK: - Page 1: the books
@@ -47,7 +52,10 @@ struct BookPicker: View {
                     suggestions
                 } else {
                     Section {
-                        Picker("Testament", selection: $testament) {
+                        Picker("Testament", selection: Binding(
+                            get: { testament },
+                            set: { chosenTestament = $0 }
+                        )) {
                             Text("Old Testament").tag(false)
                             Text("New Testament").tag(true)
                         }
@@ -77,6 +85,13 @@ struct BookPicker: View {
             .onAppear {
                 // Opens with the book being read in view, not at Genesis.
                 proxy.scrollTo(here.index, anchor: .center)
+            }
+            .onChange(of: testament) { _, new in
+                // Coming back to the testament holding their place brings it into view again;
+                // looking at the other one leaves the list where the reader put it.
+                if store.book(of: store.position.chapter).newTestament == new {
+                    proxy.scrollTo(here.index, anchor: .center)
+                }
             }
         }
     }

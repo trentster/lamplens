@@ -495,16 +495,30 @@ final class BibleUITests: XCTestCase {
     /// The picker as the Mac has it: a chapter brings its verses up, and a verse is what goes there.
     func testPicksAVerseFromItsChapter() {
         app.buttons["reference"].tap()
-        // The picker opens with the book you are reading already expanded (John 1 on a fresh
-        // launch), so its chapters are already on screen.
+        // One decision per page since the picker was split: the books come first, marked where you
+        // are, then that book's chapters, then its verses.
+        let john = bookRow("John")
+        XCTAssertTrue(john.waitForExistence(timeout: 5), "John is not in the book list")
+        john.tap()
         let chapterThree = app.buttons["John 3"].firstMatch
-        XCTAssertTrue(chapterThree.waitForExistence(timeout: 5))
+        XCTAssertTrue(chapterThree.waitForExistence(timeout: 5), "John offers no chapter 3")
         chapterThree.tap()
         let verseSixteen = app.buttons["John 3:16"].firstMatch
         XCTAssertTrue(verseSixteen.waitForExistence(timeout: 5), "John 3 shows no verses")
         verseSixteen.tap()
         expectChapter("John 3")
         XCTAssertTrue(verse("John 3:16").waitForExistence(timeout: 5))
+    }
+
+    /// The case that failed by hand: reading deep in the Old Testament, the picker has to open with
+    /// the ticked book in view, or the reader has to go hunting for their own place.
+    func testThePickerOpensOnTheBookBeingRead() {
+        jump("mal 4")
+        expectChapter("Malachi 4")
+        app.buttons["reference"].tap()
+        let malachi = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Malachi'")).firstMatch
+        XCTAssertTrue(malachi.waitForExistence(timeout: 5), "Malachi is not in the book list")
+        XCTAssertTrue(malachi.isHittable, "the ticked book was out of view when the picker opened")
     }
 
     /// A new reader is asked two questions once, and one tap with the defaults is enough.
