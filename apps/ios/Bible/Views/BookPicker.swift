@@ -1,184 +1,237 @@
 import SwiftUI
 
-/// Books and chapters, and a field that takes a reference: "jn 3:16", "ps 23", "1 cor 13".
+/// Where to read: books, then chapters, then verses — one decision per page, so the reader always
+/// knows which choice they are making. The field at the top still takes a reference: "jn 3:16",
+/// "ps 23", "1 cor 13".
 struct BookPicker: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let theme: Theme
+
+    @State private var path = NavigationPath()
     @State private var query = ""
-    @State private var open: UInt8?
-    /// Which chapter's verses are showing under a book's grid. Choosing one is not going there: it
-    /// is what brings its verses up, so a verse can be chosen. The same as the Mac's picker.
-    @State private var verseChapter: Int?
+    @State private var testament = true
 
     var body: some View {
-        NavigationStack {
-            ScrollViewReader { proxy in
-                List {
-                    if query.trimmingCharacters(in: .whitespaces).isEmpty {
-                        testament("Old Testament", store.bookList.filter { !$0.newTestament })
-                        testament("New Testament", store.bookList.filter(\.newTestament))
-                    } else {
-                        let suggestions = suggestReferences(input: query, limit: 8)
-                        if suggestions.isEmpty {
-                            Text("No book matches “\(query)”")
-                                .foregroundStyle(.secondary)
+        NavigationStack(path: $path) {
+            books
+                .navigationTitle("Books")
+                .navigationBarTitleDisplayMode(.inline)
+                .doneToolbar(dismiss)
+                .navigationDestination(for: BookInfo.self) { book in
+                    chapters(of: book)
+                        .navigationTitle(book.name)
+                        .navigationBarTitleDisplayMode(.inline)
+                        .doneToolbar(dismiss)
+                        .navigationDestination(for: Int.self) { chapter in
+                            verses(of: book, chapter: chapter)
+                                .navigationTitle(chapterLabel(index: UInt16(chapter)))
+                                .navigationBarTitleDisplayMode(.inline)
+                                .doneToolbar(dismiss)
                         }
-                        ForEach(suggestions, id: \.label) { reference in
-                            Button {
-                                go(reference)
-                            } label: {
-                                Label(reference.label, systemImage: reference.verse == nil ? "book" : "text.quote")
-                            }
+                }
+        }
+        .onAppear { testament = store.book(of: store.position.chapter).newTestament }
+    }
+
+    // MARK: - Page 1: the books
+
+    private var books: some View {
+        let here = store.book(of: store.position.chapter)
+        let showing = query.trimmingCharacters(in: .whitespaces).isEmpty
+            ? store.bookList.filter { $0.newTestament == testament }
+            : []
+        return ScrollViewReader { proxy in
+            List {
+                if !query.trimmingCharacters(in: .whitespaces).isEmpty {
+                    suggestions
+                } else {
+                    Section {
+                        Picker("Testament", selection: $testament) {
+                            Text("Old Testament").tag(false)
+                            Text("New Testament").tag(true)
                         }
+                        .pickerStyle(.segmented)
+                        .accessibilityIdentifier("testament")
+                        .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
+                        .listRowBackground(Color.clear)
+                    }
+                    Section {
+                        ForEach(showing, id: \.index) { book in
+                            bookRow(book, current: book.index == here.index)
+                                .id(book.index)
+                        }
+                    } header: {
+                        Text(testament ? "New Testament" : "Old Testament")
                     }
                 }
-                .listStyle(.insetGrouped)
-                .onAppear {
-                    let book = store.book(of: store.position.chapter).index
-                    open = book
-                    proxy.scrollTo(book, anchor: .center)
-                }
             }
+            .listStyle(.insetGrouped)
             .searchable(
-                text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Go to… (jn 3:16)"
+                text: $query, placement: .navigationBarDrawer(displayMode: .always),
+                prompt: "Go to… (jn 3:16)"
             )
             .textInputAutocapitalization(.never)
             .autocorrectionDisabled()
-            .onSubmit(of: .search) {
-                if let reference = parseReference(input: query) ?? suggestReferences(input: query, limit: 1).first {
-                    go(reference)
-                }
-            }
-            .navigationTitle("Books")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-
-    private func testament(_ title: String, _ books: [BookInfo]) -> some View {
-        Section(title) {
-            ForEach(books, id: \.index) { book in
-                row(book)
-                    .id(book.index)
+            .onSubmit(of: .search) { goTyped() }
+            .onAppear {
+                // Opens with the book being read in view, not at Genesis.
+                proxy.scrollTo(here.index, anchor: .center)
             }
         }
     }
 
     @ViewBuilder
-    private func row(_ book: BookInfo) -> some View {
-        let current = store.book(of: store.position.chapter).index == book.index
-        Button {
-            withAnimation(.smooth(duration: 0.25)) { open = open == book.index ? nil : book.index }
-        } label: {
-            HStack {
+    private func bookRow(_ book: BookInfo, current: Bool) -> some View {
+        NavigationLink(value: book) {
+            HStack(spacing: 8) {
                 Text(book.name)
                     .font(.body.weight(current ? .semibold : .regular))
-                    .foregroundStyle(current ? Color(theme.accent) : .primary)
-                Spacer()
-                Text(book.chapters == 1 ? "1 chapter" : "\(book.chapters)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                if book.chapters > 1 {
-                    Image(systemName: "chevron.down")
+                    .foregroundStyle(current ? Color(theme.accent) : Color(theme.ink))
+                if current {
+                    Image(systemName: "checkmark")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(.tertiary)
-                        .rotationEffect(.degrees(open == book.index ? 0 : -90))
+                        .foregroundStyle(Color(theme.accent))
+                }
+                Spacer(minLength: 0)
+                Text(book.chapters == 1 ? "1 chapter" : "\(book.chapters) chapters")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(theme.ink2))
+            }
+            .padding(.vertical, 2)
+        }
+        .listRowBackground(current ? Color(theme.accentSoft) : nil)
+        .accessibilityAddTraits(current ? [.isSelected] : [])
+    }
+
+    @ViewBuilder
+    private var suggestions: some View {
+        let found = suggestReferences(input: query, limit: 8)
+        Section {
+            if found.isEmpty {
+                Text("No book matches “\(query)”")
+                    .foregroundStyle(Color(theme.ink2))
+            }
+            ForEach(found, id: \.label) { reference in
+                Button {
+                    store.go(to: reference)
+                    dismiss()
+                } label: {
+                    Label(reference.label, systemImage: reference.verse == nil ? "book" : "text.quote")
                 }
             }
-            .contentShape(Rectangle())
-        }
-        .accessibilityHint("Shows its chapters and their verses")
-        if open == book.index {
-            verseWay(book)
         }
     }
 
-    /// Choosing a verse: the book's chapters across the top, the chosen chapter's verses below.
-    /// Neither list scrolls past the other, which is the rule the Mac's picker was built to.
-    private func verseWay(_ book: BookInfo) -> some View {
-        // Start on the chapter the reader is looking at, when it is in this book; else its first.
-        let here = store.position.chapter
-        let first = Int(book.firstChapter)
-        let last = first + Int(book.chapters) - 1
-        let chosen = verseChapter.flatMap { (first...last).contains($0) ? $0 : nil }
-        let chapter = chosen ?? (store.book(of: here).index == book.index ? here : first)
-        return VStack(alignment: .leading, spacing: 8) {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 44), spacing: 6)], spacing: 6) {
-                ForEach(1...Int(book.chapters), id: \.self) { n in
-                    let index = Int(book.firstChapter) + n - 1
-                    let current = index == chapter
-                    Button {
-                        withAnimation(.smooth(duration: 0.2)) { verseChapter = index }
-                    } label: {
-                        Text("\(n)")
-                            .font(.footnote.monospacedDigit().weight(current ? .semibold : .regular))
-                            .frame(maxWidth: .infinity, minHeight: 38)
-                            .foregroundStyle(current ? Color(theme.onAccent) : Color(theme.ink))
-                            .background(
-                                current ? Color(theme.accent) : Color(theme.fill),
-                                in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("\(book.name) \(n)")
-                }
-            }
-            verses(of: chapter, in: book)
-        }
-        .padding(.vertical, 4)
-    }
+    // MARK: - Page 2: the chapters
 
-    /// Every verse of a chapter on one screen, its verse numbers under the chapter it belongs to.
-    private func verses(of chapter: Int, in book: BookInfo) -> some View {
-        let count = store.verseCount(chapter)
-        let local = chapter - Int(book.firstChapter) + 1
-        return VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text("\(book.name) \(local), pick a verse")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("Whole chapter") { go(chapter: chapter) }
-                    .font(.footnote.weight(.semibold))
-            }
-            if count < 1 {
-                Text("This chapter could not be read, so its verses are unknown here.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-            } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 40), spacing: 6)], spacing: 6) {
-                    ForEach(1...count, id: \.self) { verse in
-                        Button {
-                            store.go(to: chapter, verse: verse, flash: true)
-                            dismiss()
-                        } label: {
-                            Text("\(verse)")
-                                .font(.footnote.monospacedDigit())
-                                .frame(maxWidth: .infinity, minHeight: 38)
-                                .foregroundStyle(Color(theme.ink))
+    private func chapters(of book: BookInfo) -> some View {
+        let here = store.book(of: store.position.chapter)
+        let current = here.index == book.index ? store.position.chapter : nil
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(book.chapters == 1 ? "1 chapter" : "\(book.chapters) chapters")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(theme.ink2))
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 56), spacing: 8)], spacing: 8
+                ) {
+                    ForEach(1...Int(book.chapters), id: \.self) { n in
+                        let index = Int(book.firstChapter) + n - 1
+                        NavigationLink(value: index) {
+                            Text("\(n)")
+                                .font(.body.monospacedDigit().weight(index == current ? .semibold : .regular))
+                                .frame(maxWidth: .infinity, minHeight: 44)
+                                .foregroundStyle(index == current ? Color(theme.onAccent) : Color(theme.ink))
                                 .background(
-                                    Color(theme.fill), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                    index == current ? Color(theme.accent) : Color(theme.fill),
+                                    in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel("\(book.name) \(local):\(verse)")
+                        .accessibilityLabel("\(book.name) \(n)")
+                        .accessibilityAddTraits(index == current ? [.isSelected] : [])
                     }
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
         }
-        .padding(.vertical, 4)
     }
 
-    private func go(chapter: Int) {
-        store.go(to: chapter)
-        dismiss()
+    // MARK: - Page 3: the verses
+
+    private func verses(of book: BookInfo, chapter: Int) -> some View {
+        let count = store.verseCount(chapter)
+        let local = chapter - Int(book.firstChapter) + 1
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Button {
+                    store.go(to: chapter)
+                    dismiss()
+                } label: {
+                    Text("Read whole chapter")
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 50)
+                        .foregroundStyle(Color(theme.onAccent))
+                        .background(
+                            Color(theme.accent), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("wholeChapter")
+                .accessibilityLabel("Read whole chapter, \(book.name) \(local)")
+
+                Text("Or start at a verse")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(theme.ink2))
+
+                if count < 1 {
+                    Text("This chapter could not be read, so its verses are unknown here.")
+                        .font(.footnote)
+                        .foregroundStyle(Color(theme.ink2))
+                } else {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 48), spacing: 8)], spacing: 8
+                    ) {
+                        ForEach(1...count, id: \.self) { verse in
+                            Button {
+                                store.go(to: chapter, verse: verse, flash: true)
+                                dismiss()
+                            } label: {
+                                Text("\(verse)")
+                                    .font(.body.monospacedDigit())
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .foregroundStyle(Color(theme.ink))
+                                    .background(
+                                        Color(theme.fill),
+                                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(book.name) \(local):\(verse)")
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.top, 10)
+        }
     }
 
-    private func go(_ reference: Reference) {
-        store.go(to: reference)
-        dismiss()
+    private func goTyped() {
+        if let reference = parseReference(input: query) ?? suggestReferences(input: query, limit: 1).first {
+            store.go(to: reference)
+            dismiss()
+        }
+    }
+}
+
+private extension View {
+    /// Done, on every page: a reader who has changed their mind should not have to walk back.
+    func doneToolbar(_ dismiss: DismissAction) -> some View {
+        toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+                    .accessibilityIdentifier("pickerDone")
+            }
+        }
     }
 }
