@@ -21,7 +21,10 @@ final class BibleUITests: XCTestCase {
     /// canon needs scrolling down to. Swipe **up** only: a downward drag on a sheet pulls it closed,
     /// which reads as "the book list is empty" and wastes an afternoon.
     private func bookRow(_ name: String) -> XCUIElement {
-        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch
+        // A row reads "John, 21 chapters"; the toolbar's own button reads "John 1. Choose a book and
+        // chapter", begins with the same letters, and sits behind the sheet — matching on those
+        // letters alone grabbed the toolbar and found it unhittable.
+        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name + ",")).firstMatch
         if row.waitForExistence(timeout: 2) { return row }
         for _ in 0..<10 where !row.exists {
             app.swipeUp(velocity: .fast)
@@ -337,12 +340,14 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(
             app.descendants(matching: .any)["lookupCard"].waitForExistence(timeout: 6),
             "holding a word opened nothing")
+        // The card draws the word in its own header, as the Mac does, not as a navigation title.
+        let card = app.descendants(matching: .any)["lookupCard"]
         let words = [
             "In", "the", "beginning", "was", "Word", "and", "with", "God", "All", "things", "made",
             "him", "life", "light", "darkness", "same", "not", "any", "without",
         ]
         XCTAssertTrue(
-            words.contains { app.navigationBars.staticTexts[$0].exists },
+            words.contains { card.staticTexts[$0].exists },
             "the card's title should be one word from the verse, not the whole verse")
         XCTAssertFalse(
             app.staticTexts["No definition found"].exists,
@@ -516,7 +521,7 @@ final class BibleUITests: XCTestCase {
         jump("mal 4")
         expectChapter("Malachi 4")
         app.buttons["reference"].tap()
-        let malachi = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Malachi'")).firstMatch
+        let malachi = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Malachi,'")).firstMatch
         XCTAssertTrue(malachi.waitForExistence(timeout: 5), "Malachi is not in the book list")
         XCTAssertTrue(malachi.isHittable, "the ticked book was out of view when the picker opened")
     }
