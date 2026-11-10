@@ -15,6 +15,9 @@ struct ReaderSettings: Codable, Equatable {
     var versePerLine = false
     var headings = true
     var wholeWords = false
+    /// Whether the sentence Read Aloud is saying is tinted. On by default, and an older saved
+    /// setting that has never heard of it decodes as on, like the others.
+    var highlightSentence = true
     /// False until the first-launch screen has been answered. Saved with the rest, so it is asked
     /// once and never again; everything it sets stays changeable in Settings.
     var didFirstRun = false
@@ -40,6 +43,7 @@ struct ReaderSettings: Codable, Equatable {
         versePerLine = value(.versePerLine, d.versePerLine)
         headings = value(.headings, d.headings)
         wholeWords = value(.wholeWords, d.wholeWords)
+        highlightSentence = value(.highlightSentence, d.highlightSentence)
         didFirstRun = value(.didFirstRun, d.didFirstRun)
     }
 }
@@ -461,7 +465,8 @@ final class Store {
 
     /// The verse Read Aloud is saying, when it is saying one on the chapter on screen.
     var speakingVerse: Int? {
-        guard speaker.phase.isOn, speaker.chapter == position.chapter,
+        guard settings.highlightSentence,
+            speaker.phase.isOn, speaker.chapter == position.chapter,
             let verse = speaker.speaking
         else { return nil }
         return Int(verse)

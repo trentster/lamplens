@@ -138,6 +138,17 @@ struct ReadAloudSettings: View {
 
     var body: some View {
         List {
+            // The Mac's Read aloud tab opens with this switch, and says the same words.
+            Section {
+                Toggle(
+                    "Highlight the sentence being read",
+                    isOn: Binding(
+                        get: { store.settings.highlightSentence },
+                        set: { store.settings.highlightSentence = $0 }))
+                    .accessibilityIdentifier("highlightSentence")
+            } footer: {
+                Text("Follows the voice")
+            }
             // Settings are for choosing, not doing. The Mac's Read aloud tab has no Start button,
             // and since Read opens paused this one only opened a paused bar behind the sheet.
             VoiceList()
