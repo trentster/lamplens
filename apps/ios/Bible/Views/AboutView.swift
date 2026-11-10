@@ -53,12 +53,6 @@ struct AboutView: View {
                 }
             }
 
-            Section("Ark of the Covenant") {
-                Text(arkCredit())
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
             Section {
                 Text(creditsSignoff())
                     .font(.footnote)
