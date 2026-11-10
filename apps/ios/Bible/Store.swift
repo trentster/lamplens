@@ -159,23 +159,118 @@ final class Store {
             ReaderStateDebug.store = self
         #endif
         jump = JumpRequest(chapter: position.chapter, verse: position.verse)
-        // A UI test can ask for one word's card by name, so the case where nothing defines the word
-        // can be shown without hunting for such a word in the text. Not behind #if DEBUG: the UI
-        // suite runs the Release configuration, where DEBUG is compiled out, and it needs the hook.
-        // Only --uitest reaches it, which no real launch passes.
-        if arguments.contains("--uitest"), let i = arguments.firstIndex(of: "--lookup"),
-            i + 1 < arguments.count
-        {
-            // After the first layout pass: a sheet asked for during the very first body evaluation
-            // is dropped, which is why this card never appeared in the test.
-            let word = arguments[i + 1]
-            Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 600_000_000)
-                self?.lookUp(
-                    word: word, chapter: self?.position.chapter ?? 0,
-                    verse: self?.position.verse ?? 1)
-            }
+        // The UX review asks for a screen by name at launch, so a capture photographs the state it
+        // names instead of wherever a walk happened to end up. See `harnessHooks`.
+        harnessHooks(arguments)
+    }
+
+    // MARK: - The UX review's way in
+
+    /// Puts the app straight into the state a screenshot names, from launch arguments alone.
+    ///
+    /// Gated on `--uitest` and nothing else, deliberately: the UI suite builds Release, where a
+    /// `#if DEBUG` block does not exist, so a DEBUG-gated hook is missing exactly when the captures
+    /// run. `--uitest` is what no real launch passes, and every write here lands in the test data
+    /// folder `openBible()` already redirects to.
+    ///
+    ///     --at <reference>                 the page opens here: `jn 3`, `ps 23:1`
+    ///     --seed                           two highlights, two bookmarks, two notes
+    ///     --open books|search|settings|study|related|words|voices
+    ///     --open note:<reference>          the note editor on one verse
+    ///     --open lookup:<word>             the word card at the page's own place
+    ///     --open verse-menu:<reference>    the verse menu over a verse or a range
+    ///     --open reading:<phase>[:<stop>]  ready|listening|paused, and what the timer stops at
+    ///     --lookup <word>                  the older spelling, kept for the lookup tests
+    ///
+    /// All of it runs after the first layout pass: a sheet asked for during the very first body
+    /// evaluation is dropped, which is how an earlier capture photographed the reader and called it
+    /// a card.
+    private func harnessHooks(_ arguments: [String]) {
+        guard arguments.contains("--uitest") else { return }
+        func value(_ flag: String) -> String? {
+            guard let i = arguments.firstIndex(of: flag), i + 1 < arguments.count else { return nil }
+            return arguments[i + 1]
         }
+        let seed = arguments.contains("--seed")
+        let at = value("--at")
+        let want = value("--open")
+        let word = value("--lookup")
+        guard seed || at != nil || want != nil || word != nil else { return }
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 600_000_000)
+            guard let self else { return }
+            if let at, let place = parseReference(input: at) { self.go(to: place) }
+            if seed { self.seedSampleStudy() }
+            if let word { self.lookUp(word: word, chapter: self.position.chapter, verse: self.position.verse) }
+            if let want { self.openState(want) }
+        }
+    }
+
+    /// `--open`'s argument: one word before the first colon, the detail after it.
+    private func openState(_ state: String) {
+        let head = String(state.prefix(while: { $0 != ":" }))
+        let rest = String(state.dropFirst(head.count).drop(while: { $0 == ":" }))
+        let parts = rest.split(separator: ":").map(String.init)
+        switch head {
+        case "books": sheet = .books
+        case "search": sheet = .search
+        case "settings": sheet = .settings
+        case "study": sheet = .study
+        case "related": sheet = .related
+        case "words": sheet = .words
+        case "voices": sheet = .voiceChooser
+        case "note":
+            guard let place = parseReference(input: rest) else { return }
+            openNote(verseRef(place))
+        case "lookup":
+            lookUp(word: rest, chapter: position.chapter, verse: position.verse)
+        case "verse-menu":
+            guard let place = parseReference(input: rest) else { return }
+            // The page moves to the selection's own chapter first: `go(to:)` clears a selection, so
+            // the order is the page, then the verses on it.
+            let first = Int(place.verse ?? 1)
+            let last = max(first, Int(place.verseEnd ?? place.verse ?? 1))
+            go(to: Int(place.chapterIndex), verse: first)
+            selection = VerseSelection(chapter: Int(place.chapterIndex), verses: Set(first...last))
+        case "reading":
+            let phase = parts.first ?? "ready"
+            if parts.count > 1, let stop = ReadAloudStop(rawValue: parts[1]) { speaker.stopAfter = stop }
+            guard speaker.installed else { return }
+            startReading()
+            if phase != "ready" { speaker.resume() }
+            if phase == "paused" {
+                // Nothing has been said yet, and the bar may only say Paused once something has:
+                // a pause straight after Play would photograph "Ready" and mean it.
+                Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                    self?.speaker.pause()
+                }
+            }
+        default:
+            break
+        }
+    }
+
+    /// The verse a parsed reference names.
+    private func verseRef(_ place: Reference) -> VerseRef {
+        VerseRef(book: place.book, chapter: place.chapter, verse: place.verse ?? 1)
+    }
+
+    /// Sample study data for the review's screenshots: two verses highlighted in two colours, two
+    /// bookmarked, two with a note. Written through the setters a reader's own taps go through, so
+    /// the screens show what they would show.
+    private func seedSampleStudy() {
+        func place(_ reference: String) -> VerseRef? {
+            parseReference(input: reference).map { verseRef($0) }
+        }
+        if let ref = place("jn 3:3") { setHighlight(ref, .yellow) }
+        if let ref = place("jn 3:7") { setHighlight(ref, .blue) }
+        if let ref = place("jn 3:16") { setBookmark(ref, true) }
+        if let ref = place("ps 23:1") { setBookmark(ref, true) }
+        if let ref = place("jn 3:5") {
+            setNote(ref, "Born of water and of the Spirit: compare Ezekiel 36:25–27.")
+        }
+        if let ref = place("jn 3:16") { setNote(ref, "God gave, not merely offered.") }
     }
 
     /// The study database and imported texts live in Application Support. If that can't be
