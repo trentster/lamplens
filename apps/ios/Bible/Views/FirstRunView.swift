@@ -43,6 +43,12 @@ struct FirstRunView: View {
                 .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(Color(theme.ink))
                 .accessibilityAddTraits(.isHeader)
+            // Left-aligned like the heading, and never truncated: if it wraps, the second line
+            // sits under the first, not centred beneath a left-aligned title.
+            Text("Read, search and listen, entirely offline.")
+                .font(.body)
+                .foregroundStyle(Color(theme.ink))
+                .fixedSize(horizontal: false, vertical: true)
             Text("Choose how you read.")
                 .font(.body)
                 .foregroundStyle(Color(theme.ink2))
