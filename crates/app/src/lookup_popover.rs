@@ -187,7 +187,7 @@ impl LookUp {
             lines.push((entry.short.clone(), Line::Text));
         }
         for line in entry.lines() {
-            lines.push((line.to_string(), Line::Text));
+            lines.push((line, Line::Text));
         }
         Body { lines, pinned: Some(original::credit().to_string()), search_for: None }
     }

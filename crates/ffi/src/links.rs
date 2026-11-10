@@ -126,7 +126,7 @@ pub fn original_verse(at: VerseRef) -> Result<Option<OriginalVerse>, BibleError>
 pub fn lexicon_entry(strong: String) -> Result<Option<LexiconEntry>, BibleError> {
     Ok(original::entry(&strong).map(|entry| {
         // Take the lines before the fields move: `lines()` borrows the body it reads.
-        let lines: Vec<String> = entry.lines().map(str::to_string).collect();
+        let lines: Vec<String> = entry.lines();
         LexiconEntry {
             id: entry.id,
             lemma: entry.lemma,

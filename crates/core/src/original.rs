@@ -65,15 +65,108 @@ pub struct Entry {
     pub pos: String,
     /// The one-line gloss: "father", "to create".
     pub short: String,
-    /// The full definition, with `<br>` between lines exactly as the source writes it.
+    /// The full definition, exactly as the source writes it: STEPBible's markup and all.
     pub body: String,
 }
 
 impl Entry {
-    /// The definition, line by line, with the source's `<br>` markers removed.
-    pub fn lines(&self) -> impl Iterator<Item = &str> {
-        self.body.split("<br>").map(str::trim).filter(|line| !line.is_empty())
+    /// The definition as a reader should see it, line by line: see [`definition_lines`].
+    pub fn lines(&self) -> Vec<String> {
+        definition_lines(&self.body)
     }
+}
+
+/// Turns a lexicon definition into plain lines for a reader.
+///
+/// The source carries its own markup, and both lexicons use it: line breaks in four spellings
+/// (`<br>`, `<BR />`, `<lb />`, …), `<b>` and `<i>`, verse links (`<ref='Act.9.41'>Act.9:41</ref>`),
+/// scholarly tags (`<author>`, `<date>`, `<a href=…>`) and `__1.`-style outline markers. Only the
+/// plain `<br>` used to be removed, so a Greek entry reached the screen as raw code.
+///
+/// Line breaks become new lines; every other tag is dropped and its words kept; a verse link keeps
+/// the text it shows, with the book's code turned into the book's usual short form ("Acts 9:41"
+/// rather than "Act.9:41"); entities are decoded; the outline markers go. Anything that only looks
+/// like a tag (the Hebrew lexicon's `future<->past`) is left as written.
+pub fn definition_lines(body: &str) -> Vec<String> {
+    let mut text = String::with_capacity(body.len());
+    // Where the text of the open verse link starts, so it can be rewritten when the link closes.
+    let mut link_start: Option<usize> = None;
+    let mut rest = body;
+    while let Some(open) = rest.find('<') {
+        text.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let Some(close) = after.find('>') else {
+            text.push_str(&rest[open..]);
+            rest = "";
+            break;
+        };
+        let tag = &after[..close];
+        let name = tag_name(tag);
+        match name.as_deref() {
+            Some("br") | Some("lb") => text.push('\n'),
+            Some("ref") if !tag.starts_with('/') => link_start = Some(text.len()),
+            Some("ref") => {
+                if let Some(start) = link_start.take() {
+                    let shown = readable_reference(&text[start..]);
+                    text.truncate(start);
+                    text.push_str(&shown);
+                }
+            }
+            Some(_) => {}
+            // Not markup at all: keep it exactly as written.
+            None => {
+                text.push('<');
+                text.push_str(tag);
+                text.push('>');
+            }
+        }
+        rest = &after[close + 1..];
+    }
+    text.push_str(rest);
+    let text = text
+        .replace("__", "")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&#39;", "'")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&");
+    text.split('\n')
+        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+/// The lower-case name of a tag (`BR /` gives `br`, `/ref` gives `ref`, `ref='Act.9.41'` gives
+/// `ref`), or `None` when the brackets hold something that is not a tag name.
+fn tag_name(tag: &str) -> Option<String> {
+    let name = tag.strip_prefix('/').unwrap_or(tag).trim_start();
+    let end = name.find(|c: char| !c.is_ascii_alphanumeric()).unwrap_or(name.len());
+    let name = &name[..end];
+    let starts_with_letter = name.chars().next().is_some_and(|c| c.is_ascii_alphabetic());
+    starts_with_letter.then(|| name.to_ascii_lowercase())
+}
+
+/// "Act.9:41;" becomes "Acts 9:41;". A code that names none of the 66 books (the lexicons also
+/// cite the Septuagint's extra books) is left as the source wrote it.
+fn readable_reference(shown: &str) -> String {
+    let Some((code, place)) = shown.split_once('.') else { return shown.to_string() };
+    if !place.starts_with(|c: char| c.is_ascii_digit()) {
+        return shown.to_string();
+    }
+    match book_from_lexicon_code(code.trim()) {
+        Some(book) => format!("{} {place}", book.info().abbrev),
+        None => shown.to_string(),
+    }
+}
+
+/// The lexicons cite books by USFM code (`Jhn`, `Mrk`), by OSIS name (`Acts`, `1Cor`) and by a few
+/// abbreviations of their own (`1Jo`), so all three are tried.
+fn book_from_lexicon_code(code: &str) -> Option<BookId> {
+    BookId::from_code(code).or_else(|| BookId::from_osis(code)).or_else(|| {
+        let lower = code.to_ascii_lowercase();
+        BookId::all().find(|book| book.info().aliases.contains(&lower.as_str()))
+    })
 }
 
 /// How to credit the data, for the About panel and the foot of a list.
@@ -387,7 +480,39 @@ mod tests {
         let entry = entry("H1254A").expect("bara has an entry");
         assert_eq!(consonants(&entry.lemma), "ברא");
         assert!(entry.short.to_lowercase().contains("create"), "{}", entry.short);
-        assert!(entry.lines().count() > 0);
+        assert!(!entry.lines().is_empty());
+    }
+
+    /// Mark's find on the phone: a Greek entry reached the screen as raw markup. Every entry in both
+    /// lexicons must come out as plain words.
+    #[test]
+    fn no_entry_shows_markup() {
+        let mut shown = 0;
+        for prefix in ['G', 'H'] {
+            for number in 1..=9_100 {
+                let Some(entry) = entry(&format!("{prefix}{number:04}")) else { continue };
+                shown += 1;
+                for line in entry.lines() {
+                    let tag = line.match_indices('<').any(|(at, _)| {
+                        line[at + 1..].starts_with(|c: char| c.is_ascii_alphabetic() || c == '/')
+                    });
+                    assert!(!tag, "{} still shows markup: {line}", entry.id);
+                    assert!(!line.contains("__"), "{} still shows an outline marker: {line}", entry.id);
+                }
+            }
+        }
+        assert!(shown > 10_000, "only {shown} entries were checked");
+    }
+
+    #[test]
+    fn anistemi_reads_as_words() {
+        let entry = entry("G0450").expect("anistemi has an entry");
+        let lines = entry.lines();
+        assert!(lines.len() > 3, "the entry's own line breaks are kept: {lines:?}");
+        let all = lines.join("\n");
+        assert!(all.contains("to raise up"), "{all}");
+        assert!(all.contains("Acts 9:41"), "a verse link reads as a reference: {all}");
+        assert!(all.contains("John 6:39"), "{all}");
     }
 
     #[test]
@@ -417,5 +542,54 @@ mod tests {
             }
         }
         assert!(missing.len() <= 12, "chapter openings without originals: {missing:?}");
+    }
+}
+
+#[cfg(test)]
+mod markup_tests {
+    use super::definition_lines;
+
+    #[test]
+    fn every_spelling_of_a_line_break_breaks_the_line() {
+        assert_eq!(definition_lines("a<br>b<BR />c<BR>d<br />e<lb />f"), ["a", "b", "c", "d", "e", "f"]);
+    }
+
+    #[test]
+    fn emphasis_and_scholarly_tags_go_and_their_words_stay() {
+        assert_eq!(
+            definition_lines("<b>to raise up</b>, <i>Words</i>, <author>Dalman</author> <date>1902</date>"),
+            ["to raise up, Words, Dalman 1902"]
+        );
+        assert_eq!(
+            definition_lines("<a href=\"javascript:void(0)\" title=\"Odyssey by Homer\">8th/7th c.BC</a>"),
+            ["8th/7th c.BC"]
+        );
+    }
+
+    #[test]
+    fn a_verse_link_reads_as_a_reference() {
+        assert_eq!(definition_lines("<ref='Act.9.41'>Act.9:41;</ref>"), ["Acts 9:41;"]);
+        assert_eq!(definition_lines("<ref='Jhn.6.39'>Jhn.6:39</ref>"), ["John 6:39"]);
+        assert_eq!(definition_lines("<ref='1Co.1.1'>1Co.1:1</ref>"), ["1 Cor 1:1"]);
+        assert_eq!(definition_lines("<ref='Act.3.22, 26'>Act.3:22, 26</ref>"), ["Acts 3:22, 26"]);
+        // A book outside the 66 keeps the source's own spelling.
+        assert_eq!(definition_lines("<ref='Sir.1.1'>Sir.1:1</ref>"), ["Sir.1:1"]);
+    }
+
+    #[test]
+    fn outline_markers_and_entities_are_cleaned() {
+        assert_eq!(definition_lines("<BR />__1. causal <BR />__(a) to rise"), ["1. causal", "(a) to rise"]);
+        assert_eq!(definition_lines("a &gt; b &amp; c"), ["a > b & c"]);
+    }
+
+    #[test]
+    fn something_that_only_looks_like_a_tag_is_left_alone() {
+        assert_eq!(definition_lines("(future<->past)"), ["(future<->past)"]);
+        assert_eq!(definition_lines("a < b"), ["a < b"]);
+    }
+
+    #[test]
+    fn spacing_is_tidied_and_empty_lines_dropped() {
+        assert_eq!(definition_lines("  a   b <br><br>  c "), ["a b", "c"]);
     }
 }
