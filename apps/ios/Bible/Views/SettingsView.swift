@@ -107,7 +107,6 @@ struct SettingsView: View {
                     } label: {
                         Label("About and licences", systemImage: "info.circle")
                     }
-                    LabeledContent("Version", value: Self.version)
                 }
             }
             .navigationTitle("Settings")
