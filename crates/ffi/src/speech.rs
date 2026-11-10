@@ -39,6 +39,10 @@ pub struct SpokenUtterance {
     pub text: String,
     pub pause_ms: u32,
     pub verse: Option<u8>,
+    /// The last verse the utterance covers, when the core joined several verses into one sentence:
+    /// a verse ending in a comma reads on into the next. The Mac tints `verse ... until`; the phone
+    /// draws its margin mark across the same span, so it needs this as well as `verse`.
+    pub until: Option<u8>,
 }
 
 /// The voices that ship with the model.
@@ -94,8 +98,8 @@ impl Speech {
     pub fn say(&self, text: String, voice_name: String) -> Result<Vec<f32>, BibleError> {
         // The names are capitalised ("Harper"), and a caller may not be: the lookup ignores case
         // rather than making every frontend remember which it is.
-        let voice = bible_core::speak::Voice::by_name(&voice_name).ok_or_else(|| {
-            BibleError::Failed { message: format!("there is no voice called {voice_name}") }
+        let voice = bible_core::speak::Voice::by_name(&voice_name).ok_or_else(|| BibleError::Failed {
+            message: format!("there is no voice called {voice_name}"),
         })?;
         let mut engine = self
             .engine

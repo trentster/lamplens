@@ -64,6 +64,7 @@ struct BookPicker: View {
                         .listRowInsets(EdgeInsets(top: 6, leading: 12, bottom: 6, trailing: 12))
                         .listRowBackground(Color.clear)
                     }
+                    .listRowBackground(Color(theme.fillStrong))
                     Section {
                         ForEach(showing, id: \.index) { book in
                             bookRow(book, current: book.index == here.index)
@@ -72,6 +73,7 @@ struct BookPicker: View {
                     } header: {
                         Text(testament ? "New Testament" : "Old Testament")
                     }
+                    .listRowBackground(Color(theme.fillStrong))
                 }
             }
             .listStyle(.insetGrouped)
@@ -139,6 +141,7 @@ struct BookPicker: View {
                 }
             }
         }
+        .listRowBackground(Color(theme.fillStrong))
     }
 
     // MARK: - Page 2: the chapters

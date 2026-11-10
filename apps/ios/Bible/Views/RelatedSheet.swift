@@ -34,6 +34,7 @@ struct RelatedSheet: View {
                                 .font(.caption)
                                 .foregroundStyle(Color(theme.ink3))
                         }
+                        .listRowBackground(Color(theme.fillStrong))
                     }
                     .listStyle(.insetGrouped)
                 }

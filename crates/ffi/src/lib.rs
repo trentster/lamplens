@@ -360,7 +360,12 @@ impl Bible {
         let said = bible_core::speak::chapter(c.book().name(), c.chapter() as u32, &verses);
         Ok(said
             .into_iter()
-            .map(|u| speech::SpokenUtterance { text: u.text, pause_ms: u.pause_ms, verse: u.verse })
+            .map(|u| speech::SpokenUtterance {
+                text: u.text,
+                pause_ms: u.pause_ms,
+                verse: u.verse,
+                until: u.until,
+            })
             .collect())
     }
 

@@ -4,7 +4,10 @@
 # an index.md that names each file and what it shows, and names the screens it could not prove.
 #
 #   scripts/ios-ux-review.sh                    # iPhone, light, default text, 390 pt wide
-#   THEME=dark scripts/ios-ux-review.sh         # (the variations come later)
+#   THEME=sepia scripts/ios-ux-review.sh        # the same screens on another palette
+#
+# Each theme writes its own folder, target/ux-review/<theme>/, so a themed run cannot wipe the last
+# one: light, sepia and dark sit side by side with an index.md each.
 #
 # The test is apps/ios/BibleUITests/Screenshots.swift → UXReview: one launch per screen, straight
 # into the state through the launch hooks in Store, and a shot only when the element that proves the
@@ -13,10 +16,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${OUT:-$ROOT/target/ux-review}"
+THEME="${THEME:-light}"
+OUT="${OUT:-$ROOT/target/ux-review/$THEME}"
 SIMULATOR="${SIMULATOR:-Bible iPhone 14}"
 DEVICE_TYPE="${DEVICE_TYPE:-iPhone 14}"
-PREFIX="${PREFIX:-iphone-light-default}"
+PREFIX="${PREFIX:-$THEME}"
 LOG="$OUT/run.log"
 
 rm -rf "$OUT"
@@ -24,7 +28,8 @@ mkdir -p "$OUT"
 
 # The capture is allowed to fail part-way: the shots it took are still worth exporting, and the test
 # reports every screen it reached either way.
-TEST_RUNNER_BIBLE_UX_REVIEW=1 TESTS=UXReview SIMULATOR="$SIMULATOR" DEVICE_TYPE="$DEVICE_TYPE" \
+TEST_RUNNER_BIBLE_UX_REVIEW=1 TEST_RUNNER_BIBLE_UX_THEME="$THEME" TESTS=UXReview \
+  SIMULATOR="$SIMULATOR" DEVICE_TYPE="$DEVICE_TYPE" \
   "$ROOT/scripts/build-ios.sh" --test >"$LOG" 2>&1 || true
 
 ATTACH="$(mktemp -d)"
@@ -60,11 +65,12 @@ fi
 # index.md comes from the run's own report crossed with the files on disk: a screen is listed as
 # captured only when both say so, so a lost export cannot be called a shot.
 {
-  echo "# UX review — iPhone, light, default text"
+  echo "# UX review — iPhone, $THEME, default text"
   echo
   echo "Simulator: $DEVICE_TYPE, 390 pt wide (Mark's 12 Pro width). One launch per screen, straight"
   echo "into the state, and the shot taken only when the element that proves the state was there."
   echo "Sample study data was made through the store's own setters, in the test data folder."
+  echo "Every launch asked for the $THEME palette."
   echo
   captured=0
   missed=0

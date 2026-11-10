@@ -4,6 +4,8 @@ import SwiftUI
 ///
 /// Shared by the Read Aloud panel and Settings → Read aloud, so the two cannot drift apart.
 struct VoiceList: View {
+    let theme: Theme
+
     @Environment(Store.self) private var store
 
     private var speaker: Speaker { store.speaker }
@@ -58,5 +60,6 @@ struct VoiceList: View {
         } footer: {
             Text("Tap a play button to hear a verse in that voice.")
         }
+        .listRowBackground(Color(theme.fillStrong))
     }
 }

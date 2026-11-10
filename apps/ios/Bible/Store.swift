@@ -180,6 +180,7 @@ final class Store {
     ///     --open lookup:<word>             the word card at the page's own place
     ///     --open verse-menu:<reference>    the verse menu over a verse or a range
     ///     --open reading:<phase>[:<stop>]  ready|listening|paused, and what the timer stops at
+    ///     --appearance <name>              automatic|light|sepia|dark, for a themed capture
     ///     --lookup <word>                  the older spelling, kept for the lookup tests
     ///
     /// All of it runs after the first layout pass: a sheet asked for during the very first body
@@ -192,13 +193,16 @@ final class Store {
             return arguments[i + 1]
         }
         let seed = arguments.contains("--seed")
+        let appearance = value("--appearance")
         let at = value("--at")
         let want = value("--open")
         let word = value("--lookup")
-        guard seed || at != nil || want != nil || word != nil else { return }
+        guard seed || at != nil || want != nil || word != nil || appearance != nil else { return }
         Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 600_000_000)
             guard let self else { return }
+            // The theme first: a capture asks for it, and everything after reads it.
+            if let appearance, let named = Appearance(rawValue: appearance) { self.settings.appearance = named }
             if let at, let place = parseReference(input: at) { self.go(to: place) }
             if seed { self.seedSampleStudy() }
             if let word { self.lookUp(word: word, chapter: self.position.chapter, verse: self.position.verse) }
@@ -560,13 +564,16 @@ final class Store {
         return VoicePosition(chapter: chapter, verse: Int(verse))
     }
 
-    /// The verse Read Aloud is saying, when it is saying one on the chapter on screen.
-    var speakingVerse: Int? {
+    /// The verses Read Aloud is saying, when it is saying them on the chapter on screen. Usually one;
+    /// a verse that ends in a comma is spoken on into the next one, and the mark covers them both —
+    /// the same span the Mac tints (`spoken_span`).
+    var speakingVerses: ClosedRange<Int>? {
         guard settings.highlightSentence,
             speaker.phase.isOn, speaker.chapter == position.chapter,
             let verse = speaker.speaking
         else { return nil }
-        return Int(verse)
+        let first = Int(verse)
+        return first...max(first, Int(speaker.speakingUntil ?? verse))
     }
 
     /// A word held down on the page: its card explains it. Nothing else changes — the reading

@@ -6,6 +6,10 @@ struct RootView: View {
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var dynamicType
 
+    /// The toolbar's own height: 4 pt of padding above a 44 pt control, as `TopBar` draws it. The
+    /// paper behind the bars is solid to this line and fades from it.
+    private static let toolbarHeight: CGFloat = 48
+
     var body: some View {
         @Bindable var store = store
         let theme = Theme.named(store.settings.appearance.resolved(scheme))
@@ -14,21 +18,27 @@ struct RootView: View {
             ZStack(alignment: .top) {
                 ReaderContainer(
                     store: store, theme: theme, style: typography(theme), translation: store.settings.translation,
-                    readingLine: safeTop + 60, selection: store.selection, speaking: store.speakingVerse,
+                    readingLine: safeTop + 60, selection: store.selection, speaking: store.speakingVerses,
                     voice: store.followingVoice,
                     marksVersion: store.marksVersion,
                     jump: store.jump
                 )
                 .overlay(alignment: .top) {
-                    // Paper under the status bar, fading out below it.
-                    LinearGradient(
-                        stops: [
-                            .init(color: Color(theme.paper), location: 0),
-                            .init(color: Color(theme.paper), location: 0.55),
-                            .init(color: Color(theme.paper).opacity(0), location: 1),
-                        ], startPoint: .top, endPoint: .bottom
-                    )
-                    .frame(height: safeTop + 28)
+                    // The paper under the status bar and the toolbar. Solid behind the toolbar
+                    // itself, so no verse shows between or around the buttons, and the fade starts
+                    // at the toolbar's bottom edge — same fade length, same toolbar height as
+                    // before. With the bars away there is nothing to back, so it keeps the short
+                    // band it always had.
+                    VStack(spacing: 0) {
+                        Color(theme.paper)
+                            .frame(height: store.barsHidden ? (safeTop + 28) * 0.55 : safeTop + Self.toolbarHeight)
+                        LinearGradient(
+                            colors: [Color(theme.paper), Color(theme.paper).opacity(0)],
+                            startPoint: .top, endPoint: .bottom
+                        )
+                        .frame(height: (safeTop + 28) * 0.45)
+                    }
+                    .frame(maxWidth: .infinity)
                     .allowsHitTesting(false)
                 }
                 .ignoresSafeArea()
@@ -45,7 +55,7 @@ struct RootView: View {
                             .font(.subheadline.weight(.medium))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .glass(in: Capsule(), theme: theme, interactive: false)
+                            .solidCard(in: Capsule(), theme: theme)
                             .transition(.move(edge: .bottom).combined(with: .opacity))
                     }
                     if store.selection != nil {
@@ -90,7 +100,7 @@ struct RootView: View {
                 case .study: StudyView(theme: theme)
                 case .related: RelatedSheet(ref: verseAnchor, theme: theme)
                 case .words: WordsSheet(ref: verseAnchor, theme: theme)
-                case .voiceChooser: VoiceChooserSheet()
+                case .voiceChooser: VoiceChooserSheet(theme: theme)
                 case .note(let ref): NoteEditor(ref: ref, theme: theme)
                 case .lookup(let look): LookupCard(lookup: look, theme: theme)
                 }
@@ -216,9 +226,11 @@ struct TopBar: View {
                         // A badge that wraps is not a badge: KJV must stay on one line.
                         .lineLimit(1)
                         .fixedSize()
-                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { badgeWidth = $0 }
                         .padding(.leading, 10)
                         .padding(.trailing, 16)
+                        // Measured after its own padding: the badge's padding is room the reference
+                        // cannot have, and leaving it out let the label claim 26 pt it did not own.
+                        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { badgeWidth = $0 }
                         .frame(minHeight: 44)
                 }
                 .accessibilityLabel("Translation: \(store.translation?.name ?? "")")
@@ -244,8 +256,11 @@ struct TopBar: View {
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { toolsWidth = $0 }
             .glass(in: Capsule(), theme: theme)
         }
-        .padding(.horizontal, 16)
+        // Measured before the outer padding, so the 32 pt the page insets take are not counted as
+        // room. With the padding on, `topWidth` was the full width and the reference claimed those
+        // 32 pt too — with the badge's 26, that is the 58 pt that squeezed "Matthew 23" to "Matthe…".
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { topWidth = $0 }
+        .padding(.horizontal, 16)
     }
 
     /// Read Aloud: one button that starts and stops, and opens its own panel on a long press.

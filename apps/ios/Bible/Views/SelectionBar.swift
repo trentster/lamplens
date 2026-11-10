@@ -91,7 +91,7 @@ struct SelectionBar: View {
         }
         .padding(16)
         .frame(maxWidth: 520)
-        .glass(in: RoundedRectangle(cornerRadius: 28, style: .continuous), theme: theme, interactive: false)
+        .solidCard(in: RoundedRectangle(cornerRadius: 28, style: .continuous), theme: theme)
     }
 
     private func action(_ title: String, _ symbol: String, _ run: @escaping () -> Void) -> some View {

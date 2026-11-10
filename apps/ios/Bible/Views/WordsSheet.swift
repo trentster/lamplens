@@ -67,6 +67,7 @@ struct OriginalWordsList: View {
                     .font(.caption)
                     .foregroundStyle(Color(theme.ink3))
             }
+            .listRowBackground(Color(theme.fillStrong))
         }
         .listStyle(.insetGrouped)
     }
@@ -120,6 +121,7 @@ struct EntryView: View {
                     }
                     .padding(.vertical, 4)
                 }
+                .listRowBackground(Color(theme.fillStrong))
                 Section {
                     ForEach(Array(entry.lines.enumerated()), id: \.offset) { _, line in
                         Text(line)
@@ -127,6 +129,7 @@ struct EntryView: View {
                             .foregroundStyle(Color(theme.ink2))
                     }
                 }
+                .listRowBackground(Color(theme.fillStrong))
             } else {
                 Section {
                     Text("No entry for \(word.strong)")
@@ -136,6 +139,7 @@ struct EntryView: View {
                         .font(.caption)
                         .foregroundStyle(Color(theme.ink3))
                 }
+                .listRowBackground(Color(theme.fillStrong))
             }
         }
         .listStyle(.insetGrouped)

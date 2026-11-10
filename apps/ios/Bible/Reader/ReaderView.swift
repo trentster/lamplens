@@ -80,9 +80,9 @@ final class ReaderView: UIScrollView, UIScrollViewDelegate {
         }
     }
 
-    /// The verse Read Aloud is saying, or `nil`. Kept to whole-chapter comparison below, so a verse
-    /// number from another chapter cannot tint the page you are looking at.
-    var speaking: Int? {
+    /// The verses Read Aloud is saying, or `nil`. Kept to whole-chapter comparison below, so verse
+    /// numbers from another chapter cannot tint the page you are looking at.
+    var speaking: ClosedRange<Int>? {
         didSet {
             if speaking != oldValue { redrawTiles() }
         }

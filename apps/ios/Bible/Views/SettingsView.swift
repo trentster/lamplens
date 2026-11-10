@@ -45,6 +45,7 @@ struct SettingsView: View {
                     Toggle("Section headings", isOn: $store.settings.headings)
                     Toggle("Search whole words only", isOn: $store.settings.wholeWords)
                 }
+                .listRowBackground(Color(theme.fillStrong))
 
                 Section("Read aloud") {
                     NavigationLink {
@@ -53,6 +54,7 @@ struct SettingsView: View {
                         LabeledContent("Voice", value: store.speaker.voice)
                     }
                 }
+                .listRowBackground(Color(theme.fillStrong))
 
                 Section("Appearance") {
                     HStack(spacing: 12) {
@@ -66,6 +68,7 @@ struct SettingsView: View {
                     }
                     .padding(.vertical, 6)
                 }
+                .listRowBackground(Color(theme.fillStrong))
 
                 Section("Translations") {
                     ForEach(store.translations, id: \.id) { t in
@@ -95,19 +98,22 @@ struct SettingsView: View {
                         .accessibilityValue(store.settings.translation == t.id ? "Selected" : "")
                     }
                 }
+                .listRowBackground(Color(theme.fillStrong))
 
                 Section("Data") {
                     ExportButton(title: "Export as Markdown", format: .markdown, file: "Lamplit notes.md")
                     ExportButton(title: "Export as JSON", format: .json, file: "Lamplit notes.json")
                 }
+                .listRowBackground(Color(theme.fillStrong))
 
                 Section("About") {
                     NavigationLink {
-                        AboutView()
+                        AboutView(theme: theme)
                     } label: {
                         Label("About and licences", systemImage: "info.circle")
                     }
                 }
+                .listRowBackground(Color(theme.fillStrong))
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
@@ -149,9 +155,10 @@ struct ReadAloudSettings: View {
             } footer: {
                 Text("Follows the voice")
             }
+            .listRowBackground(Color(theme.fillStrong))
             // Settings are for choosing, not doing. The Mac's Read aloud tab has no Start button,
             // and since Read opens paused this one only opened a paused bar behind the sheet.
-            VoiceList()
+            VoiceList(theme: theme)
         }
         .navigationTitle("Read aloud")
         .navigationBarTitleDisplayMode(.inline)

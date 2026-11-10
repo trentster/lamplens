@@ -96,7 +96,7 @@ struct ListeningBar: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
-        .glass(in: Capsule(), theme: theme)
+        .solidCard(in: Capsule(), theme: theme)
         .sheet(isPresented: $timerOpen) { timerChoices }
     }
 

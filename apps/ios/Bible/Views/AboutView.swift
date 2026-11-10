@@ -6,6 +6,8 @@ import SwiftUI
 /// credit that differs between the two platforms is a licence problem, not a copy problem. Three of
 /// these works are CC BY: the attribution is the licence.
 struct AboutView: View {
+    let theme: Theme
+
     @Environment(\.dismiss) private var dismiss
 
     // Named `rows`, not `credits`: inside this view `credits` would resolve to the property
@@ -27,6 +29,7 @@ struct AboutView: View {
                 .padding(.vertical, 4)
                 LabeledContent("Version", value: SettingsView.version)
             }
+            .listRowBackground(Color(theme.fillStrong))
 
             Section("Licences") {
                 ForEach(rows, id: \.work) { credit in
@@ -52,6 +55,7 @@ struct AboutView: View {
                     .padding(.vertical, 2)
                 }
             }
+            .listRowBackground(Color(theme.fillStrong))
 
             Section {
                 Text(creditsSignoff())
@@ -61,6 +65,7 @@ struct AboutView: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
+            .listRowBackground(Color(theme.fillStrong))
         }
         .navigationTitle("About")
         .navigationBarTitleDisplayMode(.inline)

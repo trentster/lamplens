@@ -1,7 +1,17 @@
 import SwiftUI
 
 extension View {
-    /// The design's glass: Liquid Glass from iOS 26, the system material before it.
+    /// A floating card's background: the theme's own paper, solid, so the page never shows through
+    /// the words on it. A hairline border and a soft shadow do the work the material's blur used to
+    /// do, standing the card off the page instead of letting the verse read through it.
+    func solidCard<S: Shape>(in shape: S, theme: Theme) -> some View {
+        background(Color(theme.paper), in: shape)
+            .overlay(shape.stroke(Color(theme.border), lineWidth: 0.5))
+            .shadow(color: .black.opacity(theme.isDark ? 0.3 : 0.08), radius: 12, y: 4)
+    }
+
+    /// The design's glass: Liquid Glass from iOS 26, the system material before it. The toolbar keeps
+    /// its material — the paper drawn behind it is what stops the page showing between the buttons.
     @ViewBuilder
     func glass<S: Shape>(in shape: S, theme: Theme, interactive: Bool = true) -> some View {
         #if compiler(>=6.2)
@@ -22,20 +32,17 @@ extension View {
     }
 }
 
-/// Sheets keep the system's look, tinted with the theme's accent; in sepia they take its paper.
+/// Sheets sit on the theme's paper in every theme, not the system's translucent background, so a
+/// half-height card has an opaque page under it rather than the verse it was opened from.
 struct SheetChrome: ViewModifier {
     let theme: Theme
 
     func body(content: Content) -> some View {
-        if theme.name == .sepia {
-            content
-                .tint(Color(theme.accent))
-                .scrollContentBackground(.hidden)
-                .background(Color(theme.paper))
-                .presentationBackground(Color(theme.paper))
-        } else {
-            content.tint(Color(theme.accent))
-        }
+        content
+            .tint(Color(theme.accent))
+            .scrollContentBackground(.hidden)
+            .background(Color(theme.paper))
+            .presentationBackground(Color(theme.paper))
     }
 }
 

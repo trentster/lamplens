@@ -35,6 +35,9 @@ final class Speaker {
 
     /// The verse being said right now, so the page can follow it.
     private(set) var speaking: UInt8?
+    /// The last verse of the sentence being said. A verse ending in a comma reads on into the next,
+    /// and the core hands that span over as one utterance: the page marks all of it.
+    private(set) var speakingUntil: UInt8?
     /// The chapter the reading is in, which may not be the one on screen once it carries on.
     private(set) var chapter: Int?
 
@@ -116,6 +119,7 @@ final class Speaker {
         utterances = first.verses
         next = 0
         speaking = nil
+        speakingUntil = nil
         state.open()
     }
 
@@ -181,6 +185,7 @@ final class Speaker {
         utterances = []
         next = 0
         speaking = nil
+        speakingUntil = nil
         chapter = nil
         state.close()
         NowPlaying.clear()
@@ -325,6 +330,7 @@ final class Speaker {
             next += 1
             if let verse = utterance.verse {
                 speaking = verse
+                speakingUntil = utterance.until
                 updateNowPlaying()
             }
             // Start the next one before this one is played: synthesis takes a fifth of a second a

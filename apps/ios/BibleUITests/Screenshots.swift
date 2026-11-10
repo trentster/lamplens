@@ -106,6 +106,9 @@ final class Screenshots: XCTestCase {
 final class UXReview: XCTestCase {
     private var app: XCUIApplication!
 
+    /// The palette this run photographs: `BIBLE_UX_THEME`, light unless the script says otherwise.
+    private let theme = ProcessInfo.processInfo.environment["BIBLE_UX_THEME"] ?? "light"
+
     func testCapture() throws {
         try XCTSkipUnless(ProcessInfo.processInfo.environment["BIBLE_UX_REVIEW"] == "1")
         // One bad step costs one shot, not every shot after it.
@@ -193,6 +196,41 @@ final class UXReview: XCTestCase {
         capture("06-note-new", "A note being started on John 3:19: the verse, and an empty field") {
             self.navigationBarTitled("John 3:19") && self.app.textFields.firstMatch.exists
                 && !self.fieldValue.contains("Born of water")
+        }
+
+        // 06b. Read Aloud running on a verse that is already highlighted: the margin bar has to be
+        // readable over a highlight, which is why it is a bar and not a tint.
+        launch(["--at", "jn 3:3", "--seed", "--open", "reading:listening"])
+        // The bar only exists while a verse is actually being said, so the proof waits for the bar's
+        // own reference to name one ("John 3:3") — the state that draws the margin mark, not merely
+        // the state with the reading open.
+        capture("06b-reading-on-highlight", "Read aloud saying John 3:3, which is already highlighted yellow") {
+            self.app.buttons["listenPause"].label == "Pause reading"
+                && self.labelMatches("John 3:[0-9]+.*")
+        }
+
+        // 06c. The toolbar over text that has been scrolled: the paper behind it has to reach its
+        // bottom edge, or the page shows between the buttons.
+        launch(["--at", "jn 3", "--seed"])
+        app.swipeUp(velocity: .fast)
+        usleep(600_000)
+        app.swipeDown(velocity: .slow)
+        capture("06c-toolbar-over-scrolled-text", "The toolbar with the page scrolled under it, not at the top") {
+            let first = self.app.staticTexts["John 3:1"]
+            return self.app.buttons["reference"].isHittable && (!first.exists || first.frame.minY < 0)
+        }
+
+        // 06d. Read Aloud mid-sentence, where the bar has to cover more than one verse. Light only:
+        // the mark's colour per theme is already covered by 06b.
+        if theme == "light" {
+            launch(["--at", "matt 23", "--open", "reading:listening"])
+            capture(
+                "06d-reading-whole-sentence",
+                "Mid-sentence at Matthew 23: one bar covering verses 1 and 2, as the voice reads them"
+            ) {
+                self.app.buttons["listenPause"].label == "Pause reading"
+                    && self.labelMatches("Matthew 23:[0-9]+.*")
+            }
         }
 
         // 07. Related verses.
@@ -308,7 +346,10 @@ final class UXReview: XCTestCase {
         launch(["--at", "jn 3", "--open", "verse-menu:jn 3:16"])
         _ = self.app.buttons["selectionClose"].waitForExistence(timeout: 20)
         self.tapLabel("Copy")
-        capture("16-toast-copied", "The toast that says what was copied, and goes again", settle: 0) {
+        // A short settle, not none: the toast fades in, and a shot taken at the instant it appears
+        // catches it half-transparent with the page reading through the words. It lives 1.6 s, so
+        // 0.45 s is well inside its life and past its fade.
+        capture("16-toast-copied", "The toast that says what was copied, and goes again", settle: 0.45) {
             self.says("Copied John 3:16")
         }
     }
@@ -320,7 +361,10 @@ final class UXReview: XCTestCase {
     private func launch(_ arguments: [String], keepData: Bool = false) {
         app?.terminate()
         app = XCUIApplication()
-        app.launchArguments = ["--uitest"] + (keepData ? ["--keep-data"] : []) + arguments
+        // The theme is the run's, not the screen's: every launch this class makes asks for it, so a
+        // themed run cannot leave one screen on the previous palette.
+        app.launchArguments =
+            ["--uitest", "--appearance", theme] + (keepData ? ["--keep-data"] : []) + arguments
         app.launch()
         XCTAssertEqual(app.state, .runningForeground, "the app did not come up")
     }

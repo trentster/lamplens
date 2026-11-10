@@ -6,6 +6,8 @@ import SwiftUI
 /// never use Read Aloud at all and hearing the samples is what makes the choice possible. Asked once:
 /// after this, Settings is where the voice changes.
 struct VoiceChooserSheet: View {
+    let theme: Theme
+
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
 
@@ -82,6 +84,7 @@ struct VoiceChooserSheet: View {
                 } footer: {
                     Text("Tap ▶ to hear a verse in that voice.")
                 }
+                .listRowBackground(Color(theme.fillStrong))
             }
             .navigationTitle("Choose a reading voice")
             .navigationBarTitleDisplayMode(.inline)

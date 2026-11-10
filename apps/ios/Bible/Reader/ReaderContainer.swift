@@ -9,7 +9,7 @@ struct ReaderContainer: UIViewRepresentable {
     let translation: String
     let readingLine: CGFloat
     let selection: VerseSelection?
-    let speaking: Int?
+    let speaking: ClosedRange<Int>?
     /// Where the voice is while it is sounding, for the page to follow.
     let voice: VoicePosition?
     let marksVersion: Int

@@ -231,8 +231,8 @@ final class ChapterLayout {
     struct Decorations {
         var theme: Theme
         var selected: Set<Int> = []
-        /// The verse Read Aloud is saying right now, tinted so the eye can follow the voice.
-        var speaking: Int?
+        /// The verses Read Aloud is saying right now, marked so the eye can follow the voice.
+        var speaking: ClosedRange<Int>?
         /// A word being looked up, tinted while its card is open.
         var lookedUp: NSRange?
     }
@@ -242,10 +242,13 @@ final class ChapterLayout {
     func draw(_ rect: CGRect, decorations d: Decorations) {
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         let radius = typography.s(4)
-        // Read Aloud's tint goes down first: a highlight the reader chose, or a selection they just
-        // made, must stay the loudest thing on the page.
+        // Three marks, three looks, so none of them can be mistaken for another: a highlight is a
+        // colour under the text, the verse being said is a bar in the margin, and a tapped verse is
+        // a dotted rule under it with no fill at all.
         if let spoken = d.speaking {
-            fill(bands(of: spoken), in: rect, color: d.theme.accentSoft, radius: radius, ctx: ctx)
+            readAloudBar(
+                from: bands(of: spoken.lowerBound), to: bands(of: spoken.upperBound),
+                in: rect, color: d.theme.ink, ctx: ctx)
         }
         if let range = d.lookedUp {
             fill([frame(of: range)], in: rect, color: d.theme.selection, radius: radius, ctx: ctx)
@@ -255,9 +258,7 @@ final class ChapterLayout {
             fill(bands(of: verse), in: rect, color: d.theme.highlight(color), radius: radius, ctx: ctx)
         }
         for verse in d.selected {
-            let bands = bands(of: verse)
-            fill(bands, in: rect, color: d.theme.selection, radius: radius, ctx: ctx)
-            underline(bands, in: rect, color: d.theme.accent, ctx: ctx)
+            underline(bands(of: verse), in: rect, color: d.theme.ink, ctx: ctx)
         }
         let local = rect.offsetBy(dx: -origin.x, dy: -origin.y)
         let glyphs = manager.glyphRange(forBoundingRect: local, in: container)
@@ -281,6 +282,37 @@ final class ChapterLayout {
                 ribbon.draw(at: CGPoint(x: frame.midX - ribbon.size.width / 2, y: frame.maxY + 2))
             }
         }
+    }
+
+    /// Read Aloud's mark: one narrow bar in the left margin beside the verses being said, in the
+    /// theme's own text colour, so it can never be read as one of the six highlights and shows up
+    /// over one. It runs from the first band of `from` to the last band of `to` — the whole span of
+    /// the sentence, because the core reads a verse ending in a comma on into the next, and the Mac
+    /// tints that same span. Mid-line starts and ends are covered, since the bands are whole line
+    /// boxes rather than glyph runs. If the last verse has no bands yet, the first verse's last band
+    /// ends the bar, so it can never vanish.
+    ///
+    /// Notes and bookmarks mark the right margin, so this one is the left, clear of them. When it
+    /// shows and hides is `Store.speakingVerses`' decision (`highlightSentence` included); this only
+    /// draws it, and drawing is never animated.
+    private func readAloudBar(
+        from first: [CGRect], to last: [CGRect], in clip: CGRect, color: UIColor, ctx: CGContext
+    ) {
+        guard let start = first.first, let end = last.last ?? first.last else { return }
+        let width = max(2, typography.s(3).rounded())
+        let gap = typography.s(6).rounded()
+        let column = typography.column
+        let bar = CGRect(
+            x: column.x - gap - width, y: start.minY, width: width,
+            height: max(end.maxY - start.minY, width))
+        // The bar is drawn whole and clipped by the tile, as a highlight is, so a verse taller than
+        // the visible rect still reads as one continuous mark.
+        guard bar.intersects(clip) else { return }
+        ctx.saveGState()
+        ctx.setFillColor(color.cgColor)
+        ctx.addPath(UIBezierPath(roundedRect: bar, cornerRadius: width / 2).cgPath)
+        ctx.fillPath()
+        ctx.restoreGState()
     }
 
     /// A dotted rule under each line of a selected verse, so a selection never reads as a highlight.
