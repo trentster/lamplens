@@ -21,10 +21,10 @@ final class BibleUITests: XCTestCase {
     /// canon needs scrolling down to. Swipe **up** only: a downward drag on a sheet pulls it closed,
     /// which reads as "the book list is empty" and wastes an afternoon.
     private func bookRow(_ name: String) -> XCUIElement {
-        // A row reads "John, 21 chapters"; the toolbar's own button reads "John 1. Choose a book and
-        // chapter", begins with the same letters, and sits behind the sheet — matching on those
-        // letters alone grabbed the toolbar and found it unhittable.
-        let row = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name + ",")).firstMatch
+        // Rows carry a fixed identity, so wording can change without breaking this: "book-42" is
+        // John whatever its label says. The name is only a fallback while the identity settles.
+        let byId = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'book-' AND label BEGINSWITH %@", name + ",")).firstMatch
+        let row = byId
         if row.waitForExistence(timeout: 2) { return row }
         for _ in 0..<10 where !row.exists {
             app.swipeUp(velocity: .fast)
@@ -521,7 +521,7 @@ final class BibleUITests: XCTestCase {
         jump("mal 4")
         expectChapter("Malachi 4")
         app.buttons["reference"].tap()
-        let malachi = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Malachi,'")).firstMatch
+        let malachi = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'book-' AND label BEGINSWITH 'Malachi,'")).firstMatch
         XCTAssertTrue(malachi.waitForExistence(timeout: 5), "Malachi is not in the book list")
         XCTAssertTrue(malachi.isHittable, "the ticked book was out of view when the picker opened")
     }

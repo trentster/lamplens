@@ -115,6 +115,9 @@ struct BookPicker: View {
             }
             .padding(.vertical, 2)
         }
+        // A fixed identity, so a wording change can never break a test: the row's label is what the
+        // reader sees, this is what it is.
+        .accessibilityIdentifier("book-\(book.index)")
         .listRowBackground(current ? Color(theme.accentSoft) : nil)
         .accessibilityAddTraits(current ? [.isSelected] : [])
     }
