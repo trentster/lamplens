@@ -1,5 +1,5 @@
 {
-	"name": "bible-rs-lander",
+	"name": "lamplens-site",
 	"private": true,
 	"version": "0.1.0",
 	"type": "module",
@@ -16,30 +16,22 @@
 		"test": "vitest run --passWithNoTests"
 	},
 	"devDependencies": {
-		"@sveltejs/adapter-vercel": "^7.0.1",
 		"@sveltejs/kit": "^3.1.0",
 		"@sveltejs/vite-plugin-svelte": "^7.3.1",
 		"@types/node": "^22.20.5",
-		"@types/three": "^0.186.0",
 		"ajv": "^8.20.0",
 		"happy-dom": "^20.14.6",
 		"svelte": "^5.57.2",
 		"svelte-check": "^4.7.6",
 		"typescript": "^6.0.3",
 		"vite": "^8.3.4",
-		"vitest": "^5.0.5"
+		"vitest": "^5.0.5",
+		"@sveltejs/adapter-static": "^4.0.1"
 	},
 	"imports": {
 		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*"
 	},
-	"dependencies": {
-		"@vercel/analytics": "^2.0.1",
-		"three": "^0.186.1"
-	},
-	"overrides": {
-		"@vercel/analytics": {
-			"@sveltejs/kit": "$@sveltejs/kit"
-		}
-	}
+	"dependencies": {},
+	"overrides": {}
 }
