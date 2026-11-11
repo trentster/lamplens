@@ -294,6 +294,7 @@
 		max-width: 1128px;
 		margin: 0 auto;
 		padding: 0 var(--gutter);
+		text-align: center;
 	}
 
 	.row {
