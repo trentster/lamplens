@@ -258,6 +258,31 @@ final class BibleUITests: XCTestCase {
         XCTAssertTrue(app.buttons["listenPause"].waitForExistence(timeout: 15), "the bar did not appear")
     }
 
+    /// A timer choice, picked from the menu: iOS draws those rows, so they are found by the words
+    /// they say rather than by an identifier of ours. The menu closes on the pick, as menus do.
+    /// Opens the timer menu and picks a row. The rows are iOS's own, so they are found by the words
+    /// they say. A menu that has landed badly can leave a row out of reach, so one retry is allowed
+    /// after closing it again: the tests are about what the choice does, not about a popover's luck.
+    private func chooseTimer(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
+        for _ in 0..<2 {
+            let bar = app.buttons["listenTimer"]
+            XCTAssertTrue(bar.waitForExistence(timeout: 10), "no timer on the bar", file: file, line: line)
+            bar.tap()
+            let row = app.buttons[title]
+            if row.waitForExistence(timeout: 5) {
+                let reachable = XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "isHittable == true"), object: row)
+                if XCTWaiter.wait(for: [reachable], timeout: 3) == .completed {
+                    row.tap()
+                    return
+                }
+            }
+            app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
+        }
+        XCTFail("the timer menu never offered a tappable \(title)", file: file, line: line)
+    }
+
+
     private func clockValue() -> String {
         (app.buttons["listenTimer"].value as? String) ?? ""
     }
@@ -274,9 +299,7 @@ final class BibleUITests: XCTestCase {
     func testPlayStartsTheClockAndChoosingATimerDoesNot() {
         openTheBar()
         // Picking a timer while paused records the choice; it must not start the countdown.
-        app.buttons["listenTimer"].tap()
-        XCTAssertTrue(app.buttons["timer-fiveMinutes"].waitForExistence(timeout: 4))
-        app.buttons["timer-fiveMinutes"].tap()
+        chooseTimer("5 minutes")
         XCTAssertFalse(
             clockValue().contains(":"),
             "choosing a timer while paused started the clock (saw \(clockValue()))")
@@ -294,9 +317,7 @@ final class BibleUITests: XCTestCase {
     /// pausing with 10:00 left and choosing End of chapter still stopped after ten minutes.
     func testChangingTheTimerWhilePausedReplacesTheHeldTime() {
         openTheBar()
-        app.buttons["listenTimer"].tap()
-        XCTAssertTrue(app.buttons["timer-fifteenMinutes"].waitForExistence(timeout: 4))
-        app.buttons["timer-fifteenMinutes"].tap()
+        chooseTimer("15 minutes")
 
         app.buttons["listenPause"].tap()
         let counting = XCTNSPredicateExpectation(
@@ -307,9 +328,7 @@ final class BibleUITests: XCTestCase {
 
         // Pause with time on the clock, then change the choice.
         app.buttons["listenPause"].tap()
-        app.buttons["listenTimer"].tap()
-        XCTAssertTrue(app.buttons["timer-endOfChapter"].waitForExistence(timeout: 4))
-        app.buttons["timer-endOfChapter"].tap()
+        chooseTimer("End of chapter")
 
         app.buttons["listenPause"].tap()
         let noClock = XCTNSPredicateExpectation(
@@ -617,10 +636,7 @@ final class BibleUITests: XCTestCase {
         app.buttons["listenPause"].tap()
         let timer = app.buttons["listenTimer"]
         XCTAssertTrue(timer.waitForExistence(timeout: 10), "no listening bar to time")
-        timer.tap()
-        let five = app.buttons["timer-fiveMinutes"]
-        XCTAssertTrue(five.waitForExistence(timeout: 5), "the timer rows are not offered")
-        five.tap()
+        chooseTimer("5 minutes")
 
         let first = (timer.value as? String) ?? ""
         XCTAssertTrue(first.contains(":"), "the bar shows \"\(first)\" instead of a countdown")

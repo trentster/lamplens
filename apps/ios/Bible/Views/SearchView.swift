@@ -11,7 +11,6 @@ struct SearchView: View {
     @State private var focused = true
     @State private var hits: [SearchHit] = []
     @State private var total: UInt32 = 0
-    @State private var elapsed: Double = 0
     @State private var suggestion: SearchSuggestion?
     @State private var searched = ""
     @State private var task: Task<Void, Never>?
@@ -121,9 +120,10 @@ struct SearchView: View {
         }
     }
 
+    /// "19 verses", "1 verse": the count is what a reader wants. How long the search took is
+    /// developer information, and it has no place on the page.
     private var summary: String {
-        let verses = total == 1 ? "1 verse" : "\(total.formatted()) verses"
-        return "\(verses) · \(elapsed < 1 ? "<1" : elapsed.formatted(.number.precision(.fractionLength(0)))) ms"
+        total == 1 ? "1 verse" : "\(total.formatted()) verses"
     }
 
     private var coreScope: SearchScope {
@@ -158,7 +158,6 @@ struct SearchView: View {
             guard !Task.isCancelled else { return }
             hits = page?.hits ?? []
             total = page?.total ?? 0
-            elapsed = page?.elapsedMs ?? 0
             suggestion = page?.suggestion
             searched = text
             listed = request

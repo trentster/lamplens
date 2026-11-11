@@ -187,6 +187,25 @@ final class UXReview: XCTestCase {
             self.app.descendants(matching: .any)["lookupCard"].exists && self.says("No definition found")
         }
 
+        // 05j-05p. The card's sizing, driven by hand: it opens at its own height, grows for the
+        // pages behind it, fits again on the way back, holds a drag, and refits when turned.
+        launch(["--at", "genesis 1", "--open", "lookup:beginning"])
+        capture("05j-card-fitted", "The card at its fitted height: nothing clipped, and no paper left under the source line") {
+            self.app.descendants(matching: .any)["lookupCard"].exists && self.says("Source: WordNet")
+                && self.says("7 words")
+        }
+        self.tapId("lookupOriginalWords")
+        capture("05k-card-large", "The Hebrew words page: the card takes the full sheet for a page of its own") {
+            self.navigationBarTitled("Hebrew words") && !self.says("Source: WordNet")
+        }
+        self.app.navigationBars["Hebrew words"].buttons.firstMatch.tap()
+        capture("05l-card-fitted-again", "Back on the first page: the card fits its content again") {
+            self.says("Source: WordNet") && self.app.buttons["lookupOriginalWords"].exists
+        }
+        self.app.buttons["lookupOriginalWords"].swipeUp(velocity: .slow)
+        capture("05m-card-dragged-up", "The first page dragged up by hand: it stays full until it is dragged back down") {
+            self.app.descendants(matching: .any)["lookupCard"].exists
+        }
         // 06. The note editor: one already written, and one being started.
         launch(["--at", "jn 3", "--seed", "--open", "note:jn 3:5"])
         capture("06-note-existing", "A note already written on John 3:5, with the verse above it") {
@@ -303,6 +322,27 @@ final class UXReview: XCTestCase {
             capture("08i-words-long-word", "The long word's row at the largest text size: one line for the word itself, the rest given way") {
                 self.says("apokaradokia")
             }
+            // 08j. The Stop after menu at the largest text size: eight rows no longer fit a sheet,
+            // so it scrolls, and Done is still reachable at the top.
+            launch(
+                ["--at", "jn 3", "--open", "reading:listening"],
+                textSize: "UICTContentSizeCategoryAccessibilityXXXL")
+            _ = self.app.buttons["listenPause"].waitForExistence(timeout: 20)
+            self.tapId("listenTimer")
+            capture(
+                "08j-timer-largest-text",
+                "The Stop after menu at the largest text size: iOS sizes the menu and scrolls it"
+            ) {
+                self.says("End of chapter") && self.app.descendants(matching: .any)["listenTimer"].exists
+            }
+            // 08k. The lookup card at the largest text size on the narrow phone: it must still open
+            // sensibly, and the definitions scroll if they must.
+            launch(
+                ["--at", "genesis 1", "--open", "lookup:beginning"],
+                textSize: "UICTContentSizeCategoryAccessibilityXXXL")
+            capture("08k-card-largest-text", "The card at the largest text size: it opens at its own height, and what does not fit scrolls") {
+                self.app.descendants(matching: .any)["lookupCard"].exists && self.says("beginning")
+            }
         }
         if theme == "dark" {
             launch(["--at", "genesis 1", "--open", "lookup:beginning"])
@@ -405,9 +445,9 @@ final class UXReview: XCTestCase {
         _ = self.app.buttons["listenPause"].waitForExistence(timeout: 20)
         self.tapId("listenTimer")
         capture("15-timer-menu", "The eight things a reading can stop at, the current one ticked") {
-            // Only the rows on screen exist: a List builds the rest when they are scrolled to.
-            self.navigationBarTitled("Stop after")
-                && self.app.descendants(matching: .any)["timer-endOfChapter"].exists
+            // A menu's rows are iOS's own: the tick and the closing are its work, and there is
+            // nothing to hang an identifier on. Both ends of the list have to be there.
+            self.says("End of chapter") && self.says("Keep reading")
         }
 
         // 16. A toast, which is only there for a moment: proved by its own words.

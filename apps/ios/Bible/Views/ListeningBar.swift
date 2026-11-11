@@ -11,7 +11,6 @@ struct ListeningBar: View {
     let theme: Theme
 
     private var speaker: Speaker { store.speaker }
-    @State private var timerOpen = false
 
     var body: some View {
         // Only the bar redraws, once a second: the page underneath stays exactly where it is.
@@ -58,8 +57,20 @@ struct ListeningBar: View {
 
             // The countdown is the button's own label: a 14 pt glyph alone is a small target for
             // someone listening in bed, and the time is the thing worth seeing.
-            Button {
-                timerOpen = true
+            Menu {
+                // The Mac's pop-up timer, in the phone's own idiom: iOS draws the tick against the
+                // choice in force and closes the menu when one is picked, so there is no Done button
+                // and no height to get wrong.
+                Picker("Stop after", selection: Binding(
+                    get: { speaker.stopAfter },
+                    set: { speaker.stopAfter = $0 }
+                )) {
+                    ForEach(ReadAloudStop.allCases) { choice in
+                        Text(choice.title).tag(choice)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
             } label: {
                 HStack(spacing: 5) {
                     Image(systemName: "timer")
@@ -76,6 +87,10 @@ struct ListeningBar: View {
                 .frame(height: 36)
                 .contentShape(Rectangle())
             }
+            // iOS reverses a menu that opens upwards; the Mac's pop-up does not. Held on the menu
+            // itself, this keeps the declared order — End of chapter first, Keep reading last —
+            // whichever way it opens.
+            .menuOrder(.fixed)
             // The timer keeps its room; it is the reference that truncates on a small screen.
             .layoutPriority(1)
             .accessibilityLabel("Stop after")
@@ -97,7 +112,6 @@ struct ListeningBar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 8)
         .solidCard(in: Capsule(), theme: theme)
-        .sheet(isPresented: $timerOpen) { timerChoices }
     }
 
     /// "Matthew 15:1" while a verse is being said, "Matthew 15" between them.
@@ -117,41 +131,6 @@ struct ListeningBar: View {
         return hours > 0
             ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
             : String(format: "%02d:%02d", minutes, seconds)
-    }
-
-    /// The eight choices in the Mac's order, with the one in force ticked.
-    private var timerChoices: some View {
-        NavigationStack {
-            List {
-                ForEach(Speaker.Stop.allCases) { choice in
-                    Button {
-                        speaker.stopAfter = choice
-                        timerOpen = false
-                    } label: {
-                        HStack {
-                            Text(choice.title)
-                                .foregroundStyle(Color(theme.ink))
-                            Spacer()
-                            if choice == speaker.stopAfter {
-                                Image(systemName: "checkmark")
-                                    .foregroundStyle(Color(theme.accent))
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityValue(choice == speaker.stopAfter ? "Selected" : "")
-                    .accessibilityIdentifier("timer-\(choice.rawValue)")
-                }
-            }
-            .navigationTitle("Stop after")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { timerOpen = false }
-                }
-            }
-        }
-        .presentationDetents([.medium])
     }
 
     /// "Listening", "Paused", "Ready", or what went wrong: what is actually happening, because a bar
