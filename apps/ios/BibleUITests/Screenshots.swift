@@ -266,8 +266,8 @@ final class UXReview: XCTestCase {
 
         // 08a-e. The lookup's deeper pages: the words of a verse, and one entry behind a word.
         // Light goes all the way in for both languages; dark stops at an entry page, since the card
-        // is the part that has to work on a dark page.
-        if theme == "light" {
+        // is the part that has to work on a dark page. Sepia goes in too: the website wants these.
+        if theme == "light" || theme == "sepia" {
             launch(["--at", "genesis 1", "--open", "lookup:beginning"])
             self.tapId("lookupOriginalWords")
             capture("08a-words-hebrew", "Genesis 1:1 in the Hebrew, word by word: the row said Hebrew, so the page does") {
@@ -447,6 +447,16 @@ final class UXReview: XCTestCase {
         capture("15-timer-menu", "The eight things a reading can stop at, the current one ticked") {
             // A menu's rows are iOS's own: the tick and the closing are its work, and there is
             // nothing to hang an identifier on. Both ends of the list have to be there.
+            self.says("End of chapter") && self.says("Keep reading")
+        }
+
+        // 15b. The timer menu over a reading that is happening: the countdown in the bar, the menu
+        // open above it, and the margin bar still showing which verse the voice is on. The website
+        // asks for this one.
+        launch(["--at", "jn 3", "--open", "reading:listening:fifteenMinutes"])
+        _ = self.app.buttons["listenPause"].waitForExistence(timeout: 20)
+        self.tapId("listenTimer")
+        capture("15b-timer-over-reading", "The timer menu open over a reading: the countdown, and the margin bar beside the verse being read") {
             self.says("End of chapter") && self.says("Keep reading")
         }
 
