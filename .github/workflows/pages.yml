@@ -4,7 +4,8 @@ name: pages
 
 on:
   push:
-    branches: [main]
+    # no-upstream-updates is where the release work lives; main joins it when the fork is released.
+    branches: [main, no-upstream-updates]
     paths: ['site/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
