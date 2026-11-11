@@ -14,7 +14,7 @@
 	title="Privacy"
 	lead="Lamplens never connects to the internet, not even once. There’s nothing to sign in to, nothing to opt out of, and no one watching what you read."
 	contactLabel="Questions about privacy"
-	lastUpdated="Last updated [DATE]. Changes to this policy appear on this page with a new date."
+	lastUpdated="Last updated 11 November 2026. Changes to this policy appear on this page with a new date."
 >
 	{#snippet sections()}
 		<h2>Lamplens collects no data</h2>

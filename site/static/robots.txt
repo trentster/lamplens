@@ -1,5 +1,3 @@
+# remove at App Store launch
 User-agent: *
-Allow: /
-Disallow: /api/
-
-Sitemap: https://simplymybible.com/sitemap.xml
+Disallow: /

@@ -14,7 +14,7 @@
 	title="Support"
 	lead="Questions or problems? Email us, or use Send feedback in the app: it writes the email for you, with your device and app version already filled in."
 	contactLabel="Email support"
-	lastUpdated="Last updated [DATE]."
+	lastUpdated="Last updated 11 November 2026."
 >
 	{#snippet sections()}
 		<h2>Back up or move your notes</h2>
