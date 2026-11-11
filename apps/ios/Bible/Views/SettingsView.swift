@@ -104,8 +104,8 @@ struct SettingsView: View {
                 .listRowBackground(Color(theme.fillStrong))
 
                 Section("Data") {
-                    ExportButton(title: "Export as Markdown", format: .markdown, file: "Lamplit notes.md")
-                    ExportButton(title: "Export as JSON", format: .json, file: "Lamplit notes.json")
+                    ExportButton(title: "Export as Markdown", format: .markdown, file: "Lamplens notes.md")
+                    ExportButton(title: "Export as JSON", format: .json, file: "Lamplens notes.json")
                 }
                 .listRowBackground(Color(theme.fillStrong))
 

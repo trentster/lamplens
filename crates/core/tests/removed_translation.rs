@@ -1,6 +1,6 @@
 //! Study data outlives the translation it was made in.
 //!
-//! Lamplit used to offer online translations (ESV, NLT, NET, API.Bible). They are gone, so a study
+//! Lamplens used to offer online translations (ESV, NLT, NET, API.Bible). They are gone, so a study
 //! file can name a translation this build no longer has. Everything the reader made — highlights,
 //! notes, reading history — is keyed by canonical verse reference, not by translation, so it must
 //! still be there, and the reading history must keep saying which translation was read.
@@ -14,7 +14,7 @@ fn john_3_16() -> VerseRef {
 
 #[test]
 fn highlights_and_notes_survive_a_translation_that_is_gone() {
-    let dir = std::env::temp_dir().join(format!("lamplit-gone-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("lamplens-gone-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("study.sqlite");

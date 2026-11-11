@@ -39,7 +39,7 @@ struct FirstRunView: View {
 
     private var heading: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Lamplit")
+            Text("Lamplens")
                 .font(.largeTitle.weight(.semibold))
                 .foregroundStyle(Color(theme.ink))
                 .accessibilityAddTraits(.isHeader)

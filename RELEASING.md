@@ -101,7 +101,7 @@ Cargo package, the command-line binary and the release file names keep the name 
    The app installs only an installer whose SHA-256 matches GitHub's digest for the file and this
    checksum list (WINDOWS.md, "Updates").
 
-The fork publishes the DMG to `https://github.com/trentster/lamplit/releases/latest/download/`,
+The fork publishes the DMG to `https://github.com/trentster/lamplens/releases/latest/download/`,
 and that is the only place a download comes from. **This build has no updater**: the feed, the
 appcast and the in-app check are gone, because a Mac copy and an App Store copy of the same app
 must not both claim the right to replace themselves. Every release is a fresh download, announced
@@ -110,7 +110,7 @@ wherever it is announced.
 ## Notes
 
 - **Keychain.** API keys stay in the login Keychain. Each item trusts the app's designated
-  requirement (bundle ID `au.com.onyxit.lamplit.mac`, team `<TEAMID>`), so every release signed this way
+  requirement (bundle ID `au.com.onyxit.lamplens.mac`, team `<TEAMID>`), so every release signed this way
   reads them without a prompt. Changing the bundle ID or the signing team makes every user approve
   access once. A key saved by an ad-hoc signed development build asks for approval once, the first
   time a release build reads it.

@@ -4,11 +4,11 @@
 //   DEVELOPMENT_TEAM = ABCDE12345
 //   BIBLE_BUNDLE_ID = com.example.bible
 // ONE SETTING, ONE LINE. Mark's identifiers:
-//   now, free cable installs on his phone:  au.com.onyxit.lamplit.dev
-//   TestFlight and the App Store, later:    au.com.onyxit.lamplit
+//   now, free cable installs on his phone:  au.com.onyxit.lamplens.dev
+//   TestFlight and the App Store, later:    au.com.onyxit.lamplens
 // The store identifier is created with Mark's paid account and must not be registered or used
 // before then, so the dev build carries the .dev one. Switching is this line and nothing else.
-BIBLE_BUNDLE_ID = au.com.onyxit.lamplit.dev
+BIBLE_BUNDLE_ID = au.com.onyxit.lamplens.dev
 DEVELOPMENT_TEAM =
 CODE_SIGN_STYLE = Automatic
 

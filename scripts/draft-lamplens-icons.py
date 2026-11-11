@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Draws the Lamplit icon placeholder and three rough directions, for Mark to choose from.
+"""Draws the Lamplens icon placeholder and three rough directions, for Mark to choose from.
 
-    python3 scripts/draft-lamplit-icons.py
+    python3 scripts/draft-lamplens-icons.py
 
 Writes:
-    packaging/logo/lamplit-placeholder.png   1024 px, what ships until Mark approves art
-    /tmp/lamplit-draft-a.png                 512 px, "Lamp, plain"
-    /tmp/lamplit-draft-b.png                 512 px, "Lamp at night"
-    /tmp/lamplit-draft-c.png                 512 px, "Page and wick"
+    packaging/logo/lamplens-placeholder.png   1024 px, what ships until Mark approves art
+    /tmp/lamplens-draft-a.png                 512 px, "Lamp, plain"
+    /tmp/lamplens-draft-b.png                 512 px, "Lamp at night"
+    /tmp/lamplens-draft-c.png                 512 px, "Page and wick"
 
 These are geometry, not artwork: enough to choose a direction and nothing more.
 """
@@ -121,10 +121,10 @@ def draft_c(size: int = 512) -> Image.Image:
 def main() -> None:
     out = ROOT / "packaging" / "logo"
     out.mkdir(parents=True, exist_ok=True)
-    placeholder().save(out / "lamplit-placeholder.png")
-    print(f"  {out / 'lamplit-placeholder.png'}")
+    placeholder().save(out / "lamplens-placeholder.png")
+    print(f"  {out / 'lamplens-placeholder.png'}")
     for name, fn in [("a", draft_a), ("b", draft_b), ("c", draft_c)]:
-        path = Path(f"/tmp/lamplit-draft-{name}.png")
+        path = Path(f"/tmp/lamplens-draft-{name}.png")
         fn().save(path)
         print(f"  {path}")
 

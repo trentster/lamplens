@@ -406,7 +406,7 @@ impl Reader {
             };
             chapters.push((abbrev, state));
         }
-        // Every translation Lamplit carries is bundled or imported from the reader's own file, and
+        // Every translation Lamplens carries is bundled or imported from the reader's own file, and
         // none of them requires a per-chapter attribution, so there is nothing to notice.
         let notices: Vec<layout::Notice> = Vec::new();
         let t_layout = std::time::Instant::now();

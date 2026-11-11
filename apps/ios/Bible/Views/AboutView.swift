@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Who made what Lamplit carries, and under what terms.
+/// Who made what Lamplens carries, and under what terms.
 ///
 /// The same list the Mac's About panel shows, read from the same place in `bible-core`, because a
 /// credit that differs between the two platforms is a licence problem, not a copy problem. Three of
@@ -18,11 +18,11 @@ struct AboutView: View {
         List {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Lamplit")
+                    Text("Lamplens")
                         .font(.title3.weight(.semibold))
                     Text("Read, search and listen, entirely offline.")
                         .font(.subheadline)
-                    Text("Lamplit never connects to the internet.")
+                    Text("Lamplens never connects to the internet.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

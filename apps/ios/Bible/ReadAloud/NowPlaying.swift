@@ -12,7 +12,7 @@ enum NowPlaying {
     static func show(title: String, verse: UInt8?, playing: Bool) {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
-            MPMediaItemPropertyArtist: "Lamplit",
+            MPMediaItemPropertyArtist: "Lamplens",
             MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
         ]

@@ -4,7 +4,7 @@
 //! * **Imported** — `.bbl` files the user converted from their own OSIS/USFM/Zefania/SWORD
 //!   files, stored in `<data dir>/translations/`.
 //!
-//! That is the whole list: Lamplit has no online translations, so a library never holds text it
+//! That is the whole list: Lamplens has no online translations, so a library never holds text it
 //! would have to fetch. Translations decode lazily (once, ≈10 ms) and can be warmed on a
 //! background thread.
 

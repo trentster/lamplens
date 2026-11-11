@@ -6,7 +6,7 @@ import Foundation
 ///
 /// From LLDB, with the app running and the debugger attached:
 ///
-///     expr -l swift -- print(lamplitReaderState())
+///     expr -l swift -- print(lamplensReaderState())
 ///
 enum ReaderStateDebug {
     static weak var reader: ReaderView?
@@ -64,7 +64,7 @@ enum ReaderStateDebug {
 ///
 /// The state lives on the main actor, and hopping there synchronously would deadlock against a
 /// frozen main thread — the very thing being investigated — so anything else says so instead.
-func lamplitReaderState() -> String {
+func lamplensReaderState() -> String {
     guard Thread.isMainThread else {
         return "not the main thread; select it first (thread select 1), then run this again"
     }

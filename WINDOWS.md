@@ -1,6 +1,6 @@
 > **This is upstream's guide, kept because the code is shared.** The fork this repository now holds
 > ships macOS only: no Windows build is produced, and the updater described below does not exist in
-> it. Read the signing steps as upstream's, not as instructions for Lamplit.
+> it. Read the signing steps as upstream's, not as instructions for Lamplens.
 
 # Bible for Windows
 
@@ -21,7 +21,7 @@ from this tree.
    Choose **More info**, then **Run anyway**.
 3. The installer asks for no administrator rights. It installs for the current user into
    `%LOCALAPPDATA%\Programs\Bible`, adds **Bible** to the Start menu and to Settings › Apps ›
-   Installed apps (publisher Lamplit), and can open the app when it finishes.
+   Installed apps (publisher Lamplens), and can open the app when it finishes.
 
 Uninstall from Settings › Apps, or with `"%LOCALAPPDATA%\Programs\Bible\Uninstall Bible.exe"`.
 Uninstalling keeps your notes, highlights, settings and API keys, as dragging the Mac app to the

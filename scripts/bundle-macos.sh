@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds dist/Lamplit.app on macOS. scripts/release-macos.sh wraps it to make the signed,
+# Builds dist/Lamplens.app on macOS. scripts/release-macos.sh wraps it to make the signed,
 # notarized DMG and zip (see RELEASING.md).
 #
 #   scripts/bundle-macos.sh              # native architecture, ad-hoc signature
@@ -21,11 +21,11 @@ if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   exit 1
 fi
 # The copyright the About panel shows. Micky's full notice stays in the Acknowledgements and in
-# LICENSES/ — this line states what Lamplit is built on, and whose app it now is.
+# LICENSES/ — this line states what Lamplens is built on, and whose app it now is.
 COPYRIGHT="© 2026 Mark Trent. Based on bible-rs, MIT License. Bundled translations are public domain."
 # Mark has not chosen the final identifier; it cannot change once an App Store record exists.
-MAC_BUNDLE_ID="${MAC_BUNDLE_ID:-au.com.onyxit.lamplit.mac}"
-APP="dist/Lamplit.app"
+MAC_BUNDLE_ID="${MAC_BUNDLE_ID:-au.com.onyxit.lamplens.mac}"
+APP="dist/Lamplens.app"
 ENTITLEMENTS="packaging/macos/entitlements.plist"
 # In-app updating (Sparkle) is opt-in: `SPARKLE_UPDATES=1 scripts/bundle-macos.sh`.
 #
@@ -38,7 +38,7 @@ ENTITLEMENTS="packaging/macos/entitlements.plist"
 # private half of this key, which `generate_keys --account bible-rs` keeps in the release Mac's
 # login keychain (RELEASING.md). Every release must be signed with the same key.
 SPARKLE_UPDATES="${SPARKLE_UPDATES:-0}"
-FEED_URL="https://github.com/trentster/lamplit/releases/latest/download/appcast.xml"
+FEED_URL="https://github.com/trentster/lamplens/releases/latest/download/appcast.xml"
 SPARKLE_PUBLIC_KEY="Pq8ULcnRQOe3FxC6l7qBrhZ4VS3W53yxzZeO9z9dmY0="
 if [[ "$SPARKLE_UPDATES" == "1" ]]; then
   SPARKLE_DIR="$(scripts/fetch-sparkle.sh)"
@@ -62,7 +62,7 @@ fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp "$BIN" "$APP/Contents/MacOS/Lamplit"
+cp "$BIN" "$APP/Contents/MacOS/Lamplens"
 
 # Sparkle, loaded once the first frame is up (crates/app/src/updater). The app isn't sandboxed, so
 # Sparkle's XPC services aren't needed; headers and modules are build-time only.
@@ -107,10 +107,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Lamplit</string>
-  <key>CFBundleDisplayName</key><string>Lamplit</string>
+  <key>CFBundleName</key><string>Lamplens</string>
+  <key>CFBundleDisplayName</key><string>Lamplens</string>
   <key>CFBundleIdentifier</key><string>${MAC_BUNDLE_ID}</string>
-  <key>CFBundleExecutable</key><string>Lamplit</string>
+  <key>CFBundleExecutable</key><string>Lamplens</string>
   <key>CFBundleIconFile</key><string>AppIcon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -145,4 +145,4 @@ if [[ "$SPARKLE_UPDATES" == "1" ]]; then
 fi
 "${SIGN[@]}" --entitlements "$ENTITLEMENTS" "$APP"
 
-echo "Built $APP ($VERSION, $(lipo -archs "$APP/Contents/MacOS/Lamplit"), Sparkle: $([[ "$SPARKLE_UPDATES" == "1" ]] && echo on || echo off))"
+echo "Built $APP ($VERSION, $(lipo -archs "$APP/Contents/MacOS/Lamplens"), Sparkle: $([[ "$SPARKLE_UPDATES" == "1" ]] && echo on || echo off))"

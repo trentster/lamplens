@@ -552,7 +552,7 @@ final class BibleUITests: XCTestCase {
         app.launchArguments = ["--uitest", "--first-run"]
         app.launch()
         XCTAssertTrue(
-            app.staticTexts["Lamplit"].waitForExistence(timeout: 10),
+            app.staticTexts["Lamplens"].waitForExistence(timeout: 10),
             "a first launch shows no welcome"
         )
         XCTAssertTrue(app.buttons["Start reading"].exists, "there is no way out of the first launch")
@@ -587,7 +587,7 @@ final class BibleUITests: XCTestCase {
         // The sign-off is the last thing on the screen, so scroll to it. `matching` reads the
         // element's own label; `containing` looks at its descendants, which is a different question.
         let signoff = app.staticTexts.matching(
-            NSPredicate(format: "label CONTAINS %@", "Lamplit, by Mark Trent")
+            NSPredicate(format: "label CONTAINS %@", "Lamplens, by Mark Trent")
         ).firstMatch
         for _ in 0..<6 where !signoff.exists {
             app.swipeUp(velocity: .fast)

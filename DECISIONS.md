@@ -612,9 +612,9 @@ trust it.
 Traded away: two lines that do nothing on a current compiler, in exchange for not lying about the
 minimum.
 
-## The name: Lamplit on the outside, bible-rs underneath
+## The name: Lamplens on the outside, bible-rs underneath
 
-Everything a reader sees says **Lamplit**: the window title, the menu bar's app menu and About item,
+Everything a reader sees says **Lamplens**: the window title, the menu bar's app menu and About item,
 the Settings heading, the brand on shared images, the update notices, the Mac bundle's name and
 executable, the DMG's name, and the iOS display name. What stays as it is, and why:
 
@@ -629,12 +629,12 @@ executable, the DMG's name, and the iOS display name. What stays as it is, and w
   bundle's display name is what a reader sees on the home screen.
 
 **One consequence worth knowing:** `eframe::run_native`'s name decides where egui keeps its own window
-state, so renaming it to "Lamplit" resets the saved window size and position once, on the first launch
+state, so renaming it to "Lamplens" resets the saved window size and position once, on the first launch
 after this change. It is a one-time reset, not a loss of study data.
 
 **Bundle identifiers** are single settings in each place they are needed — `MAC_BUNDLE_ID` in
 `scripts/bundle-macos.sh` and `scripts/release-macos.sh`, `BIBLE_BUNDLE_ID` in
-`apps/ios/Config/Bible.xcconfig` — and currently hold the placeholder `au.com.onyxit.lamplit(.mac)`.
+`apps/ios/Config/Bible.xcconfig` — and currently hold the placeholder `au.com.onyxit.lamplens(.mac)`.
 Mark has not chosen the final identifier, and it cannot change once an App Store record exists.
 
 ## What was traded away
@@ -677,7 +677,7 @@ The lamp is drawn once as flat shapes — plate, bowl, flame, flame core — and
 
 ## 100% offline: the online translations are gone
 
-Mark's decision: **Lamplit makes no network request except the one-off read-aloud voice download,
+Mark's decision: **Lamplens makes no network request except the one-off read-aloud voice download,
 and only when the reader asks for it.** Upstream's online translations — ESV, NLT, NET, API.Bible —
 were removed entirely on 4 November 2026, along with the API-key store, the per-chapter disk cache
 and every string that offered them.
@@ -690,7 +690,7 @@ is on the device, and the only thing that ever leaves is a request you started y
 
 What this cost, stated plainly:
 
-- **The ESV, NLT, NET and API.Bible texts are no longer readable in Lamplit at all.** Readers who
+- **The ESV, NLT, NET and API.Bible texts are no longer readable in Lamplens at all.** Readers who
   want them must import files they own — which the app supports — or wait. This is a real
   reduction, and it is the price of the promise.
 - **`ureq`, `tls` and `keyring` left `bible-core`.** The core carries no HTTP client and no TLS
@@ -756,7 +756,7 @@ voice download is written in, the rule is the same: the app ships no TLS impleme
 
 ## No keep-awake, and the timer's eight choices
 
-Mark's decision: Lamplit does not hold the Mac awake, and no code is added to do it. If the system
+Mark's decision: Lamplens does not hold the Mac awake, and no code is added to do it. If the system
 sleeps mid-chapter, it sleeps. The cost is real and accepted: "Keep reading" and the 2-hour timer
 can both be cut short by system sleep.
 
@@ -764,16 +764,16 @@ The sleep timer now offers, in this order: **End of chapter** (the default), 5, 
 minutes, **2 hours**, and **Keep reading**. The last choice is remembered per device, in the settings
 file. A cut-off reading still finishes the sentence it is in and fades.
 
-On keep-awake, verified on the Mac that runs the app. With Lamplit reading aloud:
+On keep-awake, verified on the Mac that runs the app. With Lamplens reading aloud:
 
 ```
 pid 439(coreaudiod): PreventUserIdleSystemSleep named:
 "com.apple.audio.BuiltInSpeakerDevice.context.preventuseridlesleep"
-	Created for PID: 32543 → /Applications/Lamplit.app/Contents/MacOS/Lamplit
+	Created for PID: 32543 → /Applications/Lamplens.app/Contents/MacOS/Lamplens
 	Resources: audio-out BuiltInSpeakerDevice
 ```
 
-coreaudiod holds the assertion, attributed to Lamplit's own PID, for as long as it plays audio. So
+coreaudiod holds the assertion, attributed to Lamplens's own PID, for as long as it plays audio. So
 macOS keeps the Mac from idle-sleeping while it reads, with no keep-awake code of ours — and the
 2-hour timer and "Keep reading" lean on that rather than on anything we ship.
 
@@ -781,7 +781,7 @@ macOS keeps the Mac from idle-sleeping while it reads, with no keep-awake code o
 
 An earlier trace showed Settings drawing about 245 frames in six seconds with nothing on screen
 changing, which looked like a window burning frames for no reason. It is not: measured on the Mac
-that runs the app, with Settings open and the pointer untouched for thirty seconds, Lamplit sat at
+that runs the app, with Settings open and the pointer untouched for thirty seconds, Lamplens sat at
 **0.0% CPU**. The bursts of frames settle by themselves — the chapter pre-warming behind the panel
 finishes, and then egui stops drawing.
 
@@ -800,7 +800,7 @@ build time by `xtask fetch-speech`, never at runtime.
 The reason is subtraction, not packaging taste. Apple hosts and delivers the voice with the app, so
 nothing breaks if the repository or the URL changes; Read Aloud works on the first launch; App Review
 has no downloaded-content question to ask; and the iOS build carries no networking code at all, which
-lets the app make a promise the Mac still cannot: **Lamplit never connects to the internet.**
+lets the app make a promise the Mac still cannot: **Lamplens never connects to the internet.**
 
 The cost is about 66 MB per install, which is ordinary for an app today, and Phonon-31m and the four
 voices are Apache-2.0, so bundling is allowed. What went with it: the `URLSession` download, the

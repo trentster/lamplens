@@ -35,7 +35,7 @@ pub fn credits() -> Vec<CreditRow> {
 /// The sign-off under the list: who made this app, and what it is built on.
 #[uniffi::export]
 pub fn credits_signoff() -> String {
-    "Lamplit, by Mark Trent. Based on bible-rs, MIT License.".to_string()
+    "Lamplens, by Mark Trent. Based on bible-rs, MIT License.".to_string()
 }
 
 /// The Ark's credit line, verbatim from the repository's own note, for wherever it is shown.
@@ -74,7 +74,7 @@ mod tests {
     #[test]
     fn the_signoff_names_the_app_and_its_foundation() {
         let sign = credits_signoff();
-        assert!(sign.contains("Lamplit"));
+        assert!(sign.contains("Lamplens"));
         assert!(sign.contains("MIT"));
         assert!(ark_credit().contains("CC BY 4.0"));
     }

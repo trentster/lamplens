@@ -3,7 +3,7 @@
 # requires-python = ">=3.11"
 # dependencies = ["numpy==2.3.4", "pillow==11.3.0"]
 # ///
-"""Makes every app and site icon from the logo master, packaging/logo/lamplit-master.png.
+"""Makes every app and site icon from the logo master, packaging/logo/lamplens-master.png.
 
     uv run scripts/make-icons.py
     (cd site && sh scripts/og.sh)   # then the share image, which shows site/static/icon.png
@@ -22,10 +22,10 @@ from PIL import Image, ImageFilter
 
 ROOT = Path(__file__).resolve().parent.parent
 # The master Mark approves: a 1024 px square with transparent corners. Until it exists, the
-# placeholder is what ships. Set LAMPLIT_MASTER to point somewhere else while trying art.
-MASTER = Path(os.environ.get("LAMPLIT_MASTER", "packaging/logo/lamplit-master.png"))
+# placeholder is what ships. Set LAMPLENS_MASTER to point somewhere else while trying art.
+MASTER = Path(os.environ.get("LAMPLENS_MASTER", "packaging/logo/lamplens-master.png"))
 if not MASTER.exists():
-    MASTER = Path("packaging/logo/lamplit-placeholder.png")
+    MASTER = Path("packaging/logo/lamplens-placeholder.png")
 
 # The square in the master, in pixels: its left and top edges, side and corner radius. Measured
 # from the edge pixels' coverage; the corners fit circular arcs to within 0.3 px.

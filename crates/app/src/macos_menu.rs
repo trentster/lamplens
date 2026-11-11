@@ -28,10 +28,10 @@ impl AppMenu {
     pub fn install(ctx: &egui::Context) -> Option<Self> {
         let menu = Menu::new();
         let app = Submenu::with_items(
-            "Lamplit",
+            "Lamplens",
             true,
             &[
-                &PredefinedMenuItem::about(Some("About Lamplit"), None),
+                &PredefinedMenuItem::about(Some("About Lamplens"), None),
                 &PredefinedMenuItem::separator(),
                 &item("settings", "Settings…", Some("CmdOrCtrl+Comma")),
                 &PredefinedMenuItem::separator(),

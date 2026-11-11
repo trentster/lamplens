@@ -16,7 +16,7 @@ use std::path::Path;
 
 /// Where the voice comes from: a release asset on the project's own mirror, one file per request so
 /// a slow line makes progress that can be seen.
-pub const BUNDLE_URL: &str = "https://github.com/trentster/lamplit/releases/download/speech-1";
+pub const BUNDLE_URL: &str = "https://github.com/trentster/lamplens/releases/download/speech-1";
 
 /// Every file the voice is made of, and the digest it must have.
 ///

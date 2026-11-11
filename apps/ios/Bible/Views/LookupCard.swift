@@ -5,7 +5,7 @@ import SwiftUI
 /// original text, the way in to the words behind it.
 ///
 /// Everything it reads is bundled, so the card answers with no network at all. There is deliberately
-/// no Wiktionary link: Lamplit does not go looking outside itself.
+/// no Wiktionary link: Lamplens does not go looking outside itself.
 ///
 /// On a phone the card's first page is exactly as tall as what is on it, so a short definition does
 /// not leave a gap and the verse it came from stays in view. The words list and an entry behind it

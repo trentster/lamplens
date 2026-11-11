@@ -1689,7 +1689,7 @@ fn about(ui: &mut Ui, p: &Palette) {
     centred(
         r.top() + 100.0,
         40.0,
-        "Lamplit",
+        "Lamplens",
         FontId::new(32.0, theme::family(theme::SERIF_DISPLAY)),
         p.ink,
         -0.015,
@@ -1778,7 +1778,7 @@ fn about(ui: &mut Ui, p: &Palette) {
         ],
     );
     ui.add_space(24.0);
-    footnote(ui, p, "Lamplit, by Mark Trent. Based on bible-rs, MIT License.");
+    footnote(ui, p, "Lamplens, by Mark Trent. Based on bible-rs, MIT License.");
     ui.add_space(24.0);
 }
 

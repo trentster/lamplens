@@ -477,7 +477,7 @@ final class Speaker {
             return
         }
         NowPlaying.show(
-            title: chapterTitle?(chapter) ?? "Lamplit", verse: speaking, playing: state.phase == .reading)
+            title: chapterTitle?(chapter) ?? "Lamplens", verse: speaking, playing: state.phase == .reading)
     }
 }
 

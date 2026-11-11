@@ -1,4 +1,4 @@
-# Lamplit on the App Store
+# Lamplens on the App Store
 
 How to get the iPhone and iPad app into the App Store, and what to paste into App Store Connect.
 The repository holds everything that doesn't need an Apple account: the privacy manifest, the
@@ -8,15 +8,15 @@ for its holder.
 
 ## Decide first
 
-The App Store name is **Lamplit**. The name under the icon, `CFBundleDisplayName`, is "Lamplit". No live app in the US, UK, Canadian or Australian store used the name on 20
+The App Store name is **Lamplens**. The name under the icon, `CFBundleDisplayName`, is "Lamplens". No live app in the US, UK, Canadian or Australian store used the name on 20
 October 2026; App Store Connect confirms it's free when the record is created.
 
-1. **The bundle ID.** Two of them, and Mark owns both. `au.com.onyxit.lamplit.dev` is what the app
-   carries now, for free cable installs on his phone. `au.com.onyxit.lamplit` is the store
+1. **The bundle ID.** Two of them, and Mark owns both. `au.com.onyxit.lamplens.dev` is what the app
+   carries now, for free cable installs on his phone. `au.com.onyxit.lamplens` is the store
    identifier: it is created with his paid account at submission and must not be registered or used
    before then. Both live in `BIBLE_BUNDLE_ID` in
    `Config/Bible.xcconfig`, and it can't change once the record exists. The Mac app is
-   `au.com.onyxit.lamplit.mac` and ships outside the store, so the two don't need to match.
+   `au.com.onyxit.lamplens.mac` and ships outside the store, so the two don't need to match.
 2. **The version.** The phone app takes its version from `Cargo.toml`, like the Mac, so it would
    launch as 0.2.0. The store accepts that; set 1.0.0 there first if you'd rather launch at 1.0.
 3. **The UK store.** The KJV is public domain everywhere except the UK, where the Crown's letters
@@ -27,8 +27,8 @@ October 2026; App Store Connect confirms it's free when the record is created.
 
 ## One-time setup
 
-1. **The app's record.** In App Store Connect, Apps, +, New App: platform iOS, name "Lamplit", primary
-   language English (U.S.), bundle ID `au.com.onyxit.lamplit`, SKU `lamplit-ios`. If the bundle ID isn't
+1. **The app's record.** In App Store Connect, Apps, +, New App: platform iOS, name "Lamplens", primary
+   language English (U.S.), bundle ID `au.com.onyxit.lamplens`, SKU `lamplens-ios`. If the bundle ID isn't
    in the list yet, register it first under Certificates, Identifiers & Profiles, Identifiers, as
    an explicit App ID with no capabilities.
 2. **Signing.** The team is Mark's own Apple Developer team, filled into `DEVELOPMENT_TEAM` in `Config/Local.xcconfig`. The simplest route is to sign
@@ -60,7 +60,7 @@ October 2026; App Store Connect confirms it's free when the record is created.
 
 | Field | Text |
 |---|---|
-| Name | Lamplit |
+| Name | Lamplens |
 | Subtitle | Seven translations, built in |
 | Category | Reference (primary), Books (secondary) |
 | Price | Free |
@@ -105,7 +105,7 @@ King James Version, World English Bible, Berean Standard Bible, American Standar
 PRIVATE
 No account, no ads, no analytics and no tracking. Bible never goes online, and your notes stay on your device.
 
-Lamplit is also on the Mac: `<domain>/download` (PLACEHOLDER)
+Lamplens is also on the Mac: `<domain>/download` (PLACEHOLDER)
 ```
 
 **What's New** for the first version: `The first release of Bible for iPhone and iPad.`

@@ -26,7 +26,7 @@ pub const CREDITS: &[Credit] = &[
         holder: "Micky (github.com/michaelshimeles)",
         licence: "MIT",
         url: "https://github.com/michaelshimeles/bible-rs",
-        note: "Lamplit is a fork of bible-rs. The full MIT text is in LICENSES/ of the source.",
+        note: "Lamplens is a fork of bible-rs. The full MIT text is in LICENSES/ of the source.",
     },
     Credit {
         work: "Bible translations",

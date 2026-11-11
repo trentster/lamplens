@@ -1,14 +1,14 @@
-//! The words for the one time Lamplit uses the network.
+//! The words for the one time Lamplens uses the network.
 //!
 //! The voice download is a product promise, not a layout detail: it is the only connection the app
 //! ever makes, and what it buys — reading aloud with the radio off — is the point of it. Written
 //! once here rather than twice in two languages, where the two copies would drift apart.
 
 /// What the download is, and what it buys.
-pub const VOICE_DOWNLOAD_MAIN: &str = "A one-time 66 MB download lets Lamplit read aloud offline.";
+pub const VOICE_DOWNLOAD_MAIN: &str = "A one-time 66 MB download lets Lamplens read aloud offline.";
 
 /// Why that is the whole story.
-pub const VOICE_DOWNLOAD_SECOND: &str = "Nothing else in Lamplit uses the internet.";
+pub const VOICE_DOWNLOAD_SECOND: &str = "Nothing else in Lamplens uses the internet.";
 
 /// The control that starts it.
 pub const VOICE_DOWNLOAD_BUTTON: &str = "Download the voice";

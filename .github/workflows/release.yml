@@ -123,7 +123,7 @@ jobs:
             dist/appcast.xml
           if-no-files-found: error
 
-      # lamplit-universal.dmg is the stable name a website link can point at, and appcast.xml
+      # lamplens-universal.dmg is the stable name a website link can point at, and appcast.xml
       # the feed installed copies check.
       - name: Draft release
         env:

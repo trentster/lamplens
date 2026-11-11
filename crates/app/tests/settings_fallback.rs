@@ -1,5 +1,5 @@
 //! A saved reading translation that this build no longer has falls back to the default one, and
-//! the reader's study data keeps working. Lamplit used to offer online translations; a settings
+//! the reader's study data keeps working. Lamplens used to offer online translations; a settings
 //! file can still name one.
 
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use bible_rs::app::{Settings, initialize};
 
 #[test]
 fn a_gone_translation_falls_back_and_keeps_the_study_data() {
-    let dir = std::env::temp_dir().join(format!("lamplit-fallback-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("lamplens-fallback-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Reset Lamplit on the connected iPhone: uninstall (which takes the app's whole container with it),
+# Reset Lamplens on the connected iPhone: uninstall (which takes the app's whole container with it),
 # install the last build again, and launch it. Every test round then starts at the first-launch
 # screen with no notes, no highlights, no saved settings and no downloaded voice.
 #
@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-BUNDLE="au.com.onyxit.lamplit.dev"
+BUNDLE="au.com.onyxit.lamplens.dev"
 APP="$ROOT/target/ios/DerivedData/Build/Products/Release-iphoneos/Bible.app"
 LAUNCH=1
 [[ "${1:-}" == "--no-launch" ]] && LAUNCH=0
@@ -27,7 +27,7 @@ echo "device $UDID"
 # Uninstalling is the reset: the container, and with it settings, notes and the voice, goes too.
 xcrun devicectl device uninstall app --device "$UDID" "$BUNDLE" >/dev/null 2>&1 || true
 # Say so out loud: a silent failure here would leave the last round's notes and settings in place.
-if xcrun devicectl device info apps --device "$UDID" 2>/dev/null | grep -qi lamplit; then
+if xcrun devicectl device info apps --device "$UDID" 2>/dev/null | grep -qi lamplens; then
   echo "the app is still installed: the wipe did not happen" >&2; exit 1
 fi
 echo "wiped"
