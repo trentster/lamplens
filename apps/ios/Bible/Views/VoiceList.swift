@@ -12,7 +12,7 @@ struct VoiceList: View {
 
     var body: some View {
         Section {
-            ForEach(speaker.offered, id: \.name) { voice in
+            ForEach(speaker.offeredInOrder, id: \.name) { voice in
                 HStack(spacing: 12) {
                     Button {
                         speaker.voice = voice.name
@@ -20,7 +20,7 @@ struct VoiceList: View {
                     } label: {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(voice.name)
-                            Text("\(voice.accent) · \(voice.female ? "female" : "male") · \(voice.nativeWpm) wpm")
+                            Text(voice.voiceOrder.described)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -28,7 +28,7 @@ struct VoiceList: View {
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("\(voice.name), \(voice.accent), \(voice.female ? "female" : "male")")
+                    .accessibilityLabel("\(voice.name), \(voice.voiceOrder.described)")
                     .accessibilityValue(speaker.voice == voice.name ? "Selected" : "")
                     .accessibilityAddTraits(speaker.voice == voice.name ? [.isButton, .isSelected] : .isButton)
 

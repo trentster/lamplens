@@ -11,25 +11,15 @@ struct VoiceChooserSheet: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
 
-    /// The four voices in the order they are offered, Spencer first: core's default is the UK man,
-    /// so that is what a reader who simply presses Choose gets. These are the names `voices()`
-    /// reports, which is what the speaker and the settings store hold.
-    private static let order = ["Spencer", "Russell", "Freya", "Harper"]
-
+    /// The voice a reader who simply presses Choose gets: core's default is the British man. The
+    /// order of the list is not what decides it.
     @State private var chosen = "Spencer"
 
     private var speaker: Speaker { store.speaker }
 
-    private var offered: [VoiceInfo] {
-        let all = speaker.offered
-        return Self.order.compactMap { name in all.first { $0.name == name } }
-    }
-
-    /// "British male", not "UK · male": a reader choosing a voice is choosing how the words sound.
-    private func spoken(_ voice: VoiceInfo) -> String {
-        let accent = voice.accent == "UK" ? "British" : "American"
-        return "\(accent) \(voice.female ? "female" : "male")"
-    }
+    /// The same order Settings shows, from the same rule (`VoiceOrder`): British before American,
+    /// female before male.
+    private var offered: [VoiceInfo] { speaker.offeredInOrder }
 
     private func label(for name: String) -> String {
         offered.first { $0.name == name }?.label ?? name
@@ -46,7 +36,7 @@ struct VoiceChooserSheet: View {
                             } label: {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(voice.label)
-                                    Text(spoken(voice))
+                                    Text(voice.voiceOrder.described)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -54,7 +44,7 @@ struct VoiceChooserSheet: View {
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityLabel("\(voice.label), \(spoken(voice))")
+                            .accessibilityLabel("\(voice.label), \(voice.voiceOrder.described)")
                             .accessibilityIdentifier(voice.name)
                             .accessibilityValue(chosen == voice.name ? "Selected" : "")
                             .accessibilityAddTraits(chosen == voice.name ? [.isButton, .isSelected] : .isButton)

@@ -99,6 +99,10 @@ final class Speaker {
     /// The voices offered, with the name a reader should see.
     var offered: [VoiceInfo] { voices() }
 
+    /// Every voice the catalogue offers, in the one order both pickers use. Nothing is chosen here:
+    /// the default voice is still whatever the settings hold.
+    var offeredInOrder: [VoiceInfo] { offered.sorted { $0.voiceOrder < $1.voiceOrder } }
+
     // MARK: - Reading
 
     /// Opens the bar at `chapterIndex`, ready: nothing is said and no clock runs until Play, the way
@@ -505,4 +509,9 @@ enum SpeakerError: LocalizedError {
         case .noVoice: "the voice could not be opened"
         }
     }
+}
+
+extension VoiceInfo {
+    /// What places this voice in a list and says how it sounds: "British female".
+    var voiceOrder: VoiceOrder { VoiceOrder(accent: accent, female: female, name: name) }
 }

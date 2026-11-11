@@ -144,16 +144,18 @@ struct ReadAloudSettings: View {
 
     var body: some View {
         List {
-            // The Mac's Read aloud tab opens with this switch, and says the same words.
+            // The Mac's Read aloud tab opens with this switch; it will say these words once the Mac
+            // follows. The bar in the margin is what shows where the voice is; "highlight" belongs
+            // to the reader's own colour highlights, not to this.
             Section {
                 Toggle(
-                    "Highlight the sentence being read",
+                    "Show where the voice is",
                     isOn: Binding(
                         get: { store.settings.highlightSentence },
                         set: { store.settings.highlightSentence = $0 }))
                     .accessibilityIdentifier("highlightSentence")
             } footer: {
-                Text("Follows the voice")
+                Text("A bar in the margin follows the voice")
             }
             .listRowBackground(Color(theme.fillStrong))
             // Settings are for choosing, not doing. The Mac's Read aloud tab has no Start button,
