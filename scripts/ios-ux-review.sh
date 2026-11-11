@@ -21,6 +21,8 @@ OUT="${OUT:-$ROOT/target/ux-review/$THEME}"
 SIMULATOR="${SIMULATOR:-Bible iPhone 14}"
 DEVICE_TYPE="${DEVICE_TYPE:-iPhone 14}"
 PREFIX="${PREFIX:-$THEME}"
+# The width the shots were taken at, so a narrow run cannot claim to be a 390 pt one.
+WIDTH="${WIDTH:-390}"
 LOG="$OUT/run.log"
 
 rm -rf "$OUT"
@@ -67,7 +69,7 @@ fi
 {
   echo "# UX review — iPhone, $THEME, default text"
   echo
-  echo "Simulator: $DEVICE_TYPE, 390 pt wide (Mark's 12 Pro width). One launch per screen, straight"
+  echo "Simulator: $DEVICE_TYPE, $WIDTH pt wide. One launch per screen, straight"
   echo "into the state, and the shot taken only when the element that proves the state was there."
   echo "Sample study data was made through the store's own setters, in the test data folder."
   echo "Every launch asked for the $THEME palette."

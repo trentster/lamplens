@@ -95,7 +95,7 @@ struct LookupCard: View {
                 .fill(Color(theme.separator))
                 .frame(height: 1)
             NavigationLink {
-                OriginalWordsList(verse: original, theme: theme)
+                OriginalWordsList(verse: original, theme: theme, title: "\(original.language) words")
             } label: {
                 HStack(spacing: 8) {
                     Text(original.language)

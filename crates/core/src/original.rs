@@ -132,7 +132,15 @@ pub fn definition_lines(body: &str) -> Vec<String> {
         .replace("&apos;", "'")
         .replace("&amp;", "&");
     text.split('\n')
-        .map(|line| line.split_whitespace().collect::<Vec<_>>().join(" "))
+        .map(|line| {
+            let line = line.split_whitespace().collect::<Vec<_>>().join(" ");
+            // The lexicons open a new sense with a colon, which reaches a reader as a typo:
+            // ": beginning". The colon and the space after it go.
+            match line.strip_prefix(':') {
+                Some(rest) => rest.trim_start().to_string(),
+                None => line,
+            }
+        })
         .filter(|line| !line.is_empty())
         .collect()
 }
@@ -504,6 +512,24 @@ mod tests {
         assert!(shown > 10_000, "only {shown} entries were checked");
     }
 
+    /// Mark's find on the phone: the first definition line opened with a colon (": beginning").
+    /// The lexicons use it to open a sense; on screen it reads as a typo. No line of any entry in
+    /// either lexicon opens with one, H7225G's included.
+    #[test]
+    fn no_entry_opens_a_line_with_a_colon() {
+        for prefix in ['G', 'H'] {
+            for number in 1..=9_100 {
+                let Some(entry) = entry(&format!("{prefix}{number:04}")) else { continue };
+                for line in entry.lines() {
+                    assert!(!line.starts_with(':'), "{} still opens with a colon: {line}", entry.id);
+                }
+            }
+        }
+        let reshit = entry("H7225G").expect("reshit has an entry");
+        assert!(!reshit.lines().is_empty(), "{} has no lines", reshit.id);
+        assert!(!reshit.lines()[0].starts_with(':'), "{:?}", reshit.lines()[0]);
+    }
+
     #[test]
     fn anistemi_reads_as_words() {
         let entry = entry("G0450").expect("anistemi has an entry");
@@ -548,6 +574,13 @@ mod tests {
 #[cfg(test)]
 mod markup_tests {
     use super::definition_lines;
+
+    #[test]
+    fn the_lexicons_leading_colon_goes() {
+        assert_eq!(definition_lines(": beginning"), ["beginning"]);
+        assert_eq!(definition_lines("first<br />: second"), ["first", "second"]);
+        assert_eq!(definition_lines("a colon, not a marker: like this"), ["a colon, not a marker: like this"]);
+    }
 
     #[test]
     fn every_spelling_of_a_line_break_breaks_the_line() {

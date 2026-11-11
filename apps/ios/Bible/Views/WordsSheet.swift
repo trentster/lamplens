@@ -51,16 +51,31 @@ struct OriginalWordsList: View {
     @Environment(Store.self) private var store
     let verse: OriginalVerse
     let theme: Theme
+    /// The page's title when this is a page of its own: "Hebrew words". The words sheet names the
+    /// verse it is showing instead, so it passes nothing and keeps its own title. Both read the
+    /// language from `verse.language`, which is what the row that leads here says.
+    var title: String?
 
     var body: some View {
+        if let title {
+            list.navigationTitle(title)
+        } else {
+            list
+        }
+    }
+
+    private var list: some View {
         List {
             Section {
                 ForEach(Array(verse.words.enumerated()), id: \.offset) { _, word in
                     NavigationLink {
-                        EntryView(word: word, theme: theme)
+                        EntryView(word: word, language: verse.language, theme: theme)
                     } label: {
                         wordRow(word)
                     }
+                    // Named by its number so the review can tap a known word: the script itself is
+                    // the one thing a predicate cannot spell reliably.
+                    .accessibilityIdentifier("word-\(word.strong)")
                 }
             } footer: {
                 Text(store.wordsCreditLine)
@@ -74,9 +89,15 @@ struct OriginalWordsList: View {
 
     private func wordRow(_ word: OriginalWord) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
+            // One line, whatever the word's length. A script word broken mid-word — apokaradoki
+            // with a lone alpha beneath it — cannot be read, so the word keeps its width and the
+            // transliteration and gloss beside it wrap onto as many lines as they need.
             Text(word.surface)
                 .font(.system(size: 24))
                 .foregroundStyle(Color(theme.ink))
+                .lineLimit(1)
+                .fixedSize(horizontal: true, vertical: false)
+                .layoutPriority(1)
             VStack(alignment: .leading, spacing: 2) {
                 Text(word.translit)
                     .font(.subheadline)
@@ -84,19 +105,33 @@ struct OriginalWordsList: View {
                 Text(word.gloss)
                     .font(.footnote)
                     .foregroundStyle(Color(theme.ink3))
-                    .lineLimit(2)
             }
-            Spacer(minLength: 0)
+            // The row's remaining width, so the two lines beside the word wrap inside it instead
+            // of running off the card's edge at the largest text sizes.
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 2)
     }
 }
 
-/// One lexicon entry: the number, the word, and its definition line by line.
+/// One lexicon entry: the word in its own script as the page's title, then how it is said and what
+/// it means, line by line by line. The Strong's number stays in the small grey line, because it is
+/// how the lexicons are keyed, not what a reader came to read.
 struct EntryView: View {
     @Environment(Store.self) private var store
     let word: OriginalWord
+    /// "Hebrew" or "Greek", from the verse these words came from, so the page can say what the word
+    /// is a word of and VoiceOver can read it instead of spelling the script out.
+    let language: String
     let theme: Theme
+
+    /// What VoiceOver says for the word: "Hebrew word, pronounced re.shit". The script itself would
+    /// be spelled out letter by letter, which is not what a reader wants to hear.
+    private var spoken: String {
+        let said = store.entry(word.strong)?.translit ?? word.translit
+        // Spoken, not written: the dots that separate syllables are read out as "dot".
+        return "\(language) word, pronounced \(WordForm.sayable(said))"
+    }
 
     var body: some View {
         let entry = store.entry(word.strong)
@@ -104,17 +139,33 @@ struct EntryView: View {
             if let entry {
                 Section {
                     VStack(alignment: .leading, spacing: 6) {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text(entry.lemma)
-                                .font(.system(size: 28))
-                                .foregroundStyle(Color(theme.ink))
-                            Text(entry.translit)
-                                .font(.subheadline)
-                                .foregroundStyle(Color(theme.ink2))
-                        }
+                        Text(entry.lemma)
+                            .font(.system(size: 28))
+                            .foregroundStyle(Color(theme.ink))
+                            .accessibilityLabel(spoken)
+                        // Always on its own line, so the card is the same shape for a short word and
+                        // a long one.
+                        Text("pronounced \(entry.translit)")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(theme.ink2))
                         Text(entry.short)
                             .font(.body)
                             .foregroundStyle(Color(theme.ink))
+                        // The form as the verse prints it, and only when its letters are not the
+                        // entry's own: the ב that opens bereShit is why a reader tapped it, and
+                        // without this line the entry looks as though it lost a letter.
+                        if WordForm.differs(verse: word.surface, lemma: entry.lemma) {
+                            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                Text("In this verse:")
+                                    .font(.subheadline)
+                                    .foregroundStyle(Color(theme.ink2))
+                                Text(word.surface)
+                                    .font(.system(size: 18))
+                                    .foregroundStyle(Color(theme.ink))
+                            }
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel(WordForm.spoken(translit: word.translit))
+                        }
                         Text("\(entry.id) · \(entry.pos)")
                             .font(.caption)
                             .foregroundStyle(Color(theme.ink3))
@@ -143,7 +194,7 @@ struct EntryView: View {
             }
         }
         .listStyle(.insetGrouped)
-        .navigationTitle(word.strong)
+        .navigationTitle(Text(entry?.lemma ?? word.strong).accessibilityLabel(spoken))
         .navigationBarTitleDisplayMode(.inline)
     }
 }

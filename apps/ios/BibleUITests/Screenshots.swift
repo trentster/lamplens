@@ -178,9 +178,9 @@ final class UXReview: XCTestCase {
         }
         if self.app.cells.firstMatch.exists { self.app.cells.firstMatch.tap() }
         capture("05-lookup-entry", "One word's dictionary entry, opened from the words list") {
-            // The entry is titled with the word's own number (H7225G), and a bar carries its title
-            // as the identifier.
-            self.matchedBar("[HG][0-9]+.*") && self.app.cells.count > 0
+            // The entry is titled with the word in its own script, and the line under it says how
+            // the word is said; the number moved to the card's small grey line.
+            self.says("pronounced ") && self.says("H7225G") && self.app.cells.count > 0
         }
         launch(["--at", "genesis 1", "--open", "lookup:zzzqqq"])
         capture("05-lookup-no-definition", "A word neither dictionary has: said plainly, not left blank") {
@@ -243,6 +243,74 @@ final class UXReview: XCTestCase {
         launch(["--at", "jn 1:1", "--open", "words"])
         capture("08-words-sheet", "John 1:1 in the Greek, word by word, with what each one means") {
             self.navigationBarTitled("Greek · John 1:1") && self.app.cells.count > 0
+        }
+
+        // 08a-e. The lookup's deeper pages: the words of a verse, and one entry behind a word.
+        // Light goes all the way in for both languages; dark stops at an entry page, since the card
+        // is the part that has to work on a dark page.
+        if theme == "light" {
+            launch(["--at", "genesis 1", "--open", "lookup:beginning"])
+            self.tapId("lookupOriginalWords")
+            capture("08a-words-hebrew", "Genesis 1:1 in the Hebrew, word by word: the row said Hebrew, so the page does") {
+                self.navigationBarTitled("Hebrew words") && self.app.cells.count > 0
+            }
+            self.tapId("word-H7225G")
+            capture("08b-entry-reshit", "The entry behind \u{05E8}\u{05B5}\u{05D0}\u{05E9}\u{05C1}\u{05D9}\u{05EA}: the word itself as the title, then how it is said, then what it means") {
+                self.says("pronounced re.shit") && self.says("H7225G")
+            }
+        }
+        if theme == "light" {
+            launch(["--at", "rom 8:19", "--open", "lookup:creature"])
+            self.tapId("lookupOriginalWords")
+            capture("08c-words-greek", "Romans 8:19 in the Greek, word by word") {
+                self.navigationBarTitled("Greek words") && self.app.cells.count > 0
+            }
+            self.tapId("word-G0603")
+            capture("08d-entry-long-word", "A long word's entry: the title and the line under it hold their shape") {
+                self.says("pronounced ap.ok.ar.ad.ok.ee\u{2019}ah") || self.says("pronounced ")
+            }
+        }
+        // 08f-g. The form line, and its absence. Genesis 1:1's elohim carries cantillation the
+        // lexicon does not print: the same letters, so the entry says nothing. Romans 8:19's tes is
+        // not the article's own o, so the entry names the form the reader tapped.
+        if theme == "light" {
+            launch(["--at", "genesis 1", "--open", "lookup:beginning"])
+            self.tapId("lookupOriginalWords")
+            _ = self.app.cells.firstMatch.waitForExistence(timeout: 10)
+            self.tapCell(2)
+            capture("08f-entry-same-word", "The same word printed twice: marks in the verse, none in the lexicon, so the entry says nothing about it") {
+                self.says("H0430") && !self.says("In this verse")
+            }
+            launch(["--at", "rom 8:19", "--open", "lookup:creature"])
+            self.tapId("lookupOriginalWords")
+            _ = self.app.cells.firstMatch.waitForExistence(timeout: 10)
+            self.tapCell(3)
+            capture("08g-entry-verse-form", "A different word in the verse: the entry names the form the reader tapped") {
+                self.says("In this verse") && self.says("G3588")
+            }
+            // 08h. The words list at the largest accessibility text size: the script word is still
+            // one line, and what sits beside it gives way.
+            launch(
+                ["--at", "rom 8:19", "--open", "lookup:creature"],
+                textSize: "UICTContentSizeCategoryAccessibilityXXXL")
+            self.tapId("lookupOriginalWords")
+            capture("08h-words-largest-text", "Romans 8:19's words at the largest accessibility text size: the long word still on one line") {
+                self.navigationBarTitled("Greek words") && self.app.cells.count > 0
+            }
+            // Scrolled to the long word, whose row is taller than the sheet at this size: the word
+            // stays on one line and what sits beside it wraps rather than running off the card.
+            self.app.swipeUp(velocity: .slow)
+            capture("08i-words-long-word", "The long word's row at the largest text size: one line for the word itself, the rest given way") {
+                self.says("apokaradokia")
+            }
+        }
+        if theme == "dark" {
+            launch(["--at", "genesis 1", "--open", "lookup:beginning"])
+            self.tapId("lookupOriginalWords")
+            self.tapId("word-H7225G")
+            capture("08e-entry-dark", "The same entry on a dark page: the word, the pronunciation line, the number") {
+                self.says("pronounced ") && self.says("H7225G")
+            }
         }
 
         // 09. Search: before a word, with results, and with a suggestion.
@@ -358,13 +426,14 @@ final class UXReview: XCTestCase {
 
     /// One launch, straight into the state the arguments name. `--uitest` is the only way in, and
     /// the hooks that read these arguments live in `Store.harnessHooks`.
-    private func launch(_ arguments: [String], keepData: Bool = false) {
+    private func launch(_ arguments: [String], keepData: Bool = false, textSize: String? = nil) {
         app?.terminate()
         app = XCUIApplication()
         // The theme is the run's, not the screen's: every launch this class makes asks for it, so a
         // themed run cannot leave one screen on the previous palette.
         app.launchArguments =
-            ["--uitest", "--appearance", theme] + (keepData ? ["--keep-data"] : []) + arguments
+            ["--uitest", "--appearance", theme] + (keepData ? ["--keep-data"] : [])
+            + (textSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? []) + arguments
         app.launch()
         XCTAssertEqual(app.state, .runningForeground, "the app did not come up")
     }
@@ -499,6 +568,17 @@ final class UXReview: XCTestCase {
     }
 
     // MARK: - Taps, none of which may end the run
+
+    /// A row of a list by its place in it, for the words of a verse where the number is known and
+    /// the row's own identifier is not.
+    private func tapCell(_ index: Int) {
+        let cell = app.cells.element(boundBy: index)
+        guard cell.waitForExistence(timeout: 10) else {
+            print("UXNOTE no cell at \(index)")
+            return
+        }
+        if cell.isHittable { cell.tap() }
+    }
 
     private func tapId(_ id: String) {
         let element = app.descendants(matching: .any)[id]
