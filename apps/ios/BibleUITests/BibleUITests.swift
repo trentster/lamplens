@@ -698,6 +698,27 @@ final class BibleUITests: XCTestCase {
         ).firstMatch
         XCTAssertTrue(numbered.waitForExistence(timeout: 5), "no Greek number appeared after tapping a word")
     }
+
+    /// The one way to reach the developer from inside the app (App Review 1.5). A phone with no Mail
+    /// account cannot compose, so the row must say why and offer the address instead of doing nothing.
+    func testSendFeedbackWithNoMailAccountOffersTheAddress() {
+        app.buttons["settings"].tap()
+        let row = app.buttons["sendFeedback"]
+        // Settings opens at half height and this row sits under About, so it starts below the fold.
+        for _ in 0..<4 where !row.exists {
+            app.swipeUp(velocity: .fast)
+        }
+        XCTAssertTrue(row.waitForExistence(timeout: 5), "Settings offers no way to send feedback")
+        row.tap()
+        let alert = app.alerts["No email account on this iPhone"]
+        XCTAssertTrue(alert.waitForExistence(timeout: 5), "the row said nothing about the missing account")
+        XCTAssertTrue(
+            alert.buttons["Copy address"].exists, "the alert offers no way to get the address"
+        )
+        alert.buttons["OK"].tap()
+        let gone = expectation(for: NSPredicate(format: "exists == false"), evaluatedWith: alert)
+        wait(for: [gone], timeout: 5)
+    }
 }
 
 extension XCUIApplication {

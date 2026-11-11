@@ -10,6 +10,9 @@ struct SettingsView: View {
     @Environment(Store.self) private var store
     @Environment(\.dismiss) private var dismiss
     let theme: Theme
+    /// Send feedback: the mail screen while it is open, or the note for a phone with no Mail account.
+    @State private var mailing = false
+    @State private var noMail = false
 
     var body: some View {
         @Bindable var store = store
@@ -112,8 +115,36 @@ struct SettingsView: View {
                     } label: {
                         Label("About and licences", systemImage: "info.circle")
                     }
+                    // The one way to reach the developer from inside the app (App Review 1.5). It
+                    // looks like the row above it: a row that goes somewhere, not a tinted button.
+                    Button {
+                        if Feedback.canCompose { mailing = true } else { noMail = true }
+                    } label: {
+                        HStack {
+                            Label {
+                                Text("Send feedback").foregroundStyle(Color(theme.ink))
+                            } icon: {
+                                Image(systemName: "envelope")
+                            }
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .accessibilityIdentifier("sendFeedback")
                 }
                 .listRowBackground(Color(theme.fillStrong))
+            }
+            .sheet(isPresented: $mailing) {
+                FeedbackMail(isPresented: $mailing).ignoresSafeArea()
+            }
+            .alert("No email account on this iPhone", isPresented: $noMail) {
+                Button("Copy address") { UIPasteboard.general.string = Feedback.address }
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("Write to \(Feedback.address) from any email app.")
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
