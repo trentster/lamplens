@@ -297,33 +297,32 @@
 		text-align: center;
 	}
 
+	/* Read, Listen, Dig deeper. A fluid grid that wraps itself: one column on a phone, three across
+	   once there is room for three 240 px columns. Before this it was a horizontal scroller, so a
+	   phone showed the first shot and half the second and the third was off screen. */
 	.row {
 		max-width: 1128px;
 		margin: 0 auto;
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+		justify-items: center;
 		gap: clamp(20px, 3vw, 40px);
-		overflow-x: auto;
-		scroll-snap-type: x mandatory;
 		padding: 40px var(--gutter) 44px;
-		scrollbar-width: none;
 	}
 
 	figure {
-		flex: 0 0 clamp(200px, 26vw, 240px);
 		margin: 0;
-		scroll-snap-align: center;
+		min-width: 0;
+		max-width: 100%;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		gap: 20px;
 	}
 
-	figure:first-child {
-		margin-left: auto;
-	}
-
-	figure:last-child {
-		margin-right: auto;
+	figure img {
+		max-width: 100%;
+		height: auto;
 	}
 
 	figcaption {
