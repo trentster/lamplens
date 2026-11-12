@@ -50,7 +50,6 @@ enum NowPlaying {
         commandsInstalled = true
         let centre = MPRemoteCommandCenter.shared()
         for dead in [
-            centre.nextTrackCommand, centre.previousTrackCommand,
             centre.skipForwardCommand, centre.skipBackwardCommand,
             centre.seekForwardCommand, centre.seekBackwardCommand,
             centre.changePlaybackPositionCommand, centre.changePlaybackRateCommand,
@@ -75,6 +74,21 @@ enum NowPlaying {
         centre.togglePlayPauseCommand.addTarget { [weak speaker] _ in
             guard let speaker else { return .commandFailed }
             Task { @MainActor in speaker.togglePlayPause() }
+            return .success
+        }
+        // One verse each way: ⏮ and ⏭, which read as "the next verse", not as scrubbing.
+        centre.nextTrackCommand.isEnabled = true
+        centre.previousTrackCommand.isEnabled = true
+        centre.nextTrackCommand.addTarget { [weak speaker] _ in
+            Breadcrumbs.mark("remote: next pressed")
+            guard let speaker else { return .commandFailed }
+            Task { @MainActor in speaker.skip(by: 1) }
+            return .success
+        }
+        centre.previousTrackCommand.addTarget { [weak speaker] _ in
+            Breadcrumbs.mark("remote: previous pressed")
+            guard let speaker else { return .commandFailed }
+            Task { @MainActor in speaker.skip(by: -1) }
             return .success
         }
     }

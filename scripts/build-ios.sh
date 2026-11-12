@@ -151,7 +151,14 @@ if [[ "$TEST" == 1 ]]; then
     --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
   trap 'xcrun simctl status_bar "$UDID" clear' EXIT
   ONLY=()
-  for test in ${TESTS:-}; do ONLY+=("-only-testing:BibleUITests/$test"); done
+  for test in ${TESTS:-}; do
+    # A unit test names its bundle ("BibleTests/VerseSkipTests"); a bare name means a UI test, which
+    # is what every earlier caller meant. Getting this wrong runs zero tests and still exits green.
+    case "$test" in
+      BibleTests/* | BibleUITests/*) ONLY+=("-only-testing:$test") ;;
+      *) ONLY+=("-only-testing:BibleUITests/$test") ;;
+    esac
+  done
   RESULTS="target/ios/Tests.xcresult"
   rm -rf "$RESULTS"
   "${XCODEBUILD[@]}" -destination "id=$UDID" -resultBundlePath "$RESULTS" ${ONLY[@]+"${ONLY[@]}"} test

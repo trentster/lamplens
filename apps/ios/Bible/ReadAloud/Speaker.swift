@@ -40,6 +40,9 @@ final class Speaker {
     private(set) var speakingUntil: UInt8?
     /// The chapter the reading is in, which may not be the one on screen once it carries on.
     private(set) var chapter: Int?
+    /// When the verse now being said started, so Back can tell a verse just begun from one nearly
+    /// over: Apple restarts the item if it is past its first few seconds.
+    private var verseStartedAt: Date?
 
     var voice: String = UserDefaults.standard.string(forKey: "readAloudVoice") ?? "Spencer" {
         didSet { UserDefaults.standard.set(voice, forKey: "readAloudVoice") }
@@ -129,6 +132,7 @@ final class Speaker {
         next = 0
         speaking = nil
         speakingUntil = nil
+        verseStartedAt = nil
         state.open()
     }
 
@@ -172,6 +176,101 @@ final class Speaker {
             Breadcrumbs.mark("pause: now \(state.phase)")
         #endif
         audio.pause()
+    }
+
+    /// The lock screen's ⏮ and ⏭: one verse back or on. The sleep timer is left alone, and a paused
+    /// reading stays paused, with the margin mark moved to the verse it would say next.
+    ///
+    /// Back follows Apple's rule: inside the first three seconds of a verse it goes to the verse
+    /// before; later than that it says the verse again. At Genesis 1:1 it says that verse again, and
+    /// forward past the last verse of Revelation does nothing.
+    func skip(by delta: Int) {
+        // The press's own account of itself, for a lock screen that looks right and does nothing.
+        Breadcrumbs.mark(
+            "skip(\(delta)): phase=\(state.phase) chapter=\(chapter.map(String.init) ?? "none") "
+                + "speaking=\(speaking.map(String.init) ?? "none") utterances=\(utterances.count) "
+                + "begunAgo=\(verseStartedAt.map { String(format: "%.1f", Date().timeIntervalSince($0)) } ?? "none") "
+                + "stopAfter=\(stopAfter.rawValue) left=\(remaining.map { String(Int($0)) } ?? "none")")
+        guard state.phase.isOn, let chapter, let provider else {
+            Breadcrumbs.mark("skip(\(delta)) gave up: phase=\(state.phase)")
+            return
+        }
+        let playing = state.phase == .reading
+        var targetChapter = chapter
+        let targetVerse: UInt8
+
+        if delta > 0 {
+            // Ask the chapter itself for its last verse. The reading's own remaining utterances are
+            // not the chapter: after a Back across a chapter they begin at the verse landed on, and
+            // a trailing line with no verse number can be last, either of which left ⏭ with no verse
+            // to go to and made the press do nothing.
+            let lastVerse = VerseSkip.lastVerse(of: provider(chapter, nil).verses.map(\.verse))
+            Breadcrumbs.mark("skip(+1): chapter=\(chapter) lastVerse=\(lastVerse.map(String.init) ?? "none")")
+            var next: (chapter: Int, first: UInt8)?
+            if let lastVerse, Int(speaking ?? 0) + 1 > Int(lastVerse) {
+                let following = provider(chapter + 1, nil)
+                if let first = VerseSkip.firstVerse(of: following.verses.map(\.verse)) {
+                    next = (following.chapter, first)
+                }
+            }
+            guard
+                let landed = VerseSkip.forward(
+                    from: speaking, chapter: chapter, lastVerse: lastVerse, next: next)
+            else {
+                Breadcrumbs.mark("skip(+1) ignored: nothing after \(chapter) in the canon")
+                return
+            }
+            Breadcrumbs.mark("skip(+1): target chapter=\(landed.chapter) verse=\(landed.verse)")
+            targetChapter = landed.chapter
+            targetVerse = landed.verse
+        } else {
+            let beganAgo = verseStartedAt.map { Date().timeIntervalSince($0) }
+            // Likewise, only the first verse of a chapter — or a heading with no verse yet — needs the
+            // chapter before it.
+            let fresh = (beganAgo ?? 0) < VerseSkip.freshSeconds
+            let needsEarlier = speaking == nil || (fresh && (speaking ?? 2) <= 1)
+            var previous: (chapter: Int, last: UInt8)?
+            if needsEarlier {
+                let earlier = provider(chapter - 1, nil)
+                if let last = VerseSkip.lastVerse(of: earlier.verses.map(\.verse)) {
+                    previous = (earlier.chapter, last)
+                }
+            }
+            let landed = VerseSkip.back(
+                from: speaking, beganAgo: beganAgo, chapter: chapter, previous: previous)
+            targetChapter = landed.chapter
+            targetVerse = landed.verse
+        }
+        jump(toChapter: targetChapter, fromVerse: Int(targetVerse), playing: playing)
+    }
+
+    /// Restarts the reading at a verse, leaving the phase and the sleep timer as they are. The timer
+    /// keeps its time used: skipping is not a new reading.
+    private func jump(toChapter chapterIndex: Int, fromVerse verse: Int, playing: Bool) {
+        guard let provider else {
+            Breadcrumbs.mark("jump gave up: no provider")
+            return
+        }
+        silence()
+        let data = provider(chapterIndex, verse)
+        guard !data.verses.isEmpty else {
+            Breadcrumbs.mark("jump gave up: chapter \(chapterIndex) verse \(verse) spoke nothing")
+            return
+        }
+        Breadcrumbs.mark(
+            "jump: to chapter \(data.chapter) verse \(verse), \(data.verses.count) utterances, "
+                + "playing=\(playing), phase=\(state.phase)")
+        chapter = data.chapter
+        utterances = data.verses
+        next = 0
+        // The mark moves at once, paused or not, so the page and the bar agree before a word is said.
+        speaking = UInt8(clamping: verse)
+        speakingUntil = nil
+        // Just started: the heading is about to be read for this verse, and a press in that window
+        // must carry on back rather than repeat the verse we landed on.
+        verseStartedAt = Date()
+        updateNowPlaying()
+        if playing { work = Task { await run() } }
     }
 
     /// The lock screen's and headphones' one button.
@@ -300,6 +399,11 @@ final class Speaker {
                     break
                 }
                 self.chapter = following.chapter
+                // The new chapter's heading is read next: no verse is being said, so the mark clears
+                // and Back leaves the chapter instead of aiming at the old chapter's last verse.
+                speaking = nil
+                speakingUntil = nil
+                verseStartedAt = nil
                 updateNowPlaying()
                 utterances = following.verses
                 next = 0
@@ -342,6 +446,7 @@ final class Speaker {
             next += 1
             if let verse = utterance.verse {
                 speaking = verse
+                verseStartedAt = Date()
                 speakingUntil = utterance.until
                 updateNowPlaying()
             }

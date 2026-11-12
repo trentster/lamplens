@@ -155,8 +155,8 @@ struct TopBar: View {
 
     /// This view's own numbers, named once: the reference's leading and trailing padding, the
     /// separator between it and the badge, and the outer stack's spacing.
-    private static let refLeading: CGFloat = 16
-    private static let refTrailing: CGFloat = 10
+    private static let refLeading: CGFloat = 12
+    private static let refTrailing: CGFloat = 8
     private static let ruleWidth: CGFloat = 1
     private static let stackSpacing: CGFloat = 10
 
@@ -199,8 +199,8 @@ struct TopBar: View {
                     // control and a narrow phone gives the reference back a character's room.
                     .font(.subheadline.weight(.semibold))
                     .lineLimit(1)
-                    .padding(.leading, 16)
-                    .padding(.trailing, 10)
+                    .padding(.leading, Self.refLeading)
+                    .padding(.trailing, Self.refTrailing)
                     .frame(minHeight: 44)
                 }
                 // VoiceOver says the whole name: it should never read "Matt".
@@ -227,7 +227,7 @@ struct TopBar: View {
                         .lineLimit(1)
                         .fixedSize()
                         .padding(.leading, 10)
-                        .padding(.trailing, 16)
+                        .padding(.trailing, 12)
                         // Measured after its own padding: the badge's padding is room the reference
                         // cannot have, and leaving it out let the label claim 26 pt it did not own.
                         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { badgeWidth = $0 }
@@ -246,12 +246,21 @@ struct TopBar: View {
 
             HStack(spacing: 0) {
                 listenTool
+                // Mark reached for search when he meant Read Aloud: the two symbols look alike and
+                // their 44 pt targets touch. A hairline in the pill draws the line the symbols don't,
+                // the same 1 x 20 pt rule as the one between the reference and the translation.
+                // The design's 4.5 pt either side, kept: the rule is clear of both 44 pt targets.
+                Rectangle()
+                    .fill(Color(theme.separator))
+                    .frame(width: 1, height: 20)
+                    .padding(.horizontal, 4.5)
                 tool("magnifyingglass", "Search", id: "search") { store.sheet = .search }
                 tool("gearshape", "Settings", id: "settings") { store.sheet = .settings }
                 tool("bookmark", "Bookmarks, highlights and notes", id: "study") { store.sheet = .study }
             }
-            .padding(.horizontal, 4)
-            // The four tools keep their room; the reference takes what is left.
+            // No outer padding: the divider costs 10 pt, and the reference is never allowed an
+            // ellipsis, so those points come from here rather than from where the page is. Each
+            // symbol already carries 13 pt of its own empty frame beside the capsule's edge.
             .fixedSize()
             .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { toolsWidth = $0 }
             .glass(in: Capsule(), theme: theme)
@@ -267,14 +276,16 @@ struct TopBar: View {
     @ViewBuilder
     private var listenTool: some View {
         let phase = store.speaker.phase
-        // The Mac's speaker, coloured while it is reading and never filled.
+        // The waves while reading, the plain speaker otherwise — and the accent colour either way, so
+        // the reading is what stands out, not the button. Mark read the coloured speaker as a state
+        // that only mattered once it was on.
         let symbol = phase.isOn ? "speaker.wave.2" : "speaker"
         Button {
             store.toggleReading()
         } label: {
             Image(systemName: symbol)
                 .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(phase.isOn ? Color(theme.accent) : Color(theme.ink))
+                .foregroundStyle(Color(theme.accent))
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
         }

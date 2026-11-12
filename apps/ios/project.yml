@@ -88,6 +88,7 @@ targets:
       - path: Bible/Reader/FollowTheVoice.swift
       - path: Bible/Reader/WordForm.swift
       - path: Bible/ReadAloud/VoiceOrder.swift
+      - path: Bible/ReadAloud/VerseSkip.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BIBLE_BUNDLE_ID).tests
