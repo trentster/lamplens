@@ -149,8 +149,13 @@ final class AudioOutput {
         // says so on its own notification rather than through the interruption one.
         NotificationCenter.default.addObserver(
             forName: NSNotification.Name.AVAudioEngineConfigurationChange, object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor in self?.restartIfNeeded() }
+        ) { [weak self] note in
+            let out = AudioOutput.describeOutput()
+            let object = note.object.map { String(describing: type(of: $0)) } ?? "nil"
+            Task { @MainActor in
+                Breadcrumbs.mark("engine configuration change from \(object), out=\(out)")
+                self?.restartIfNeeded()
+            }
         }
         NotificationCenter.default.addObserver(
             forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main
@@ -158,14 +163,44 @@ final class AudioOutput {
             guard let raw = note.userInfo?[AVAudioSessionRouteChangeReasonKey] as? UInt,
                 let reason = AVAudioSession.RouteChangeReason(rawValue: raw)
             else { return }
+            let out = AudioOutput.describeOutput()
+            let previous = (note.userInfo?[AVAudioSessionRouteChangePreviousRouteKey]
+                as? AVAudioSessionRouteDescription).map { description in
+                    description.outputs.map { $0.portType.rawValue }.joined(separator: "+")
+                } ?? "none"
             Task { @MainActor in
                 guard let self else { return }
+                Breadcrumbs.mark(
+                    "route change: reason=\(AudioOutput.describe(reason)) out=\(out) was=\(previous)"
+                )
                 if reason == .oldDeviceUnavailable {
                     self.onHeadphonesOut?()
                 } else {
                     self.restartIfNeeded()
                 }
             }
+        }
+    }
+
+    /// What the phone is playing through, as the route change itself reports it, so a log can say
+    /// whether Bluetooth is in play.
+    private static func describeOutput() -> String {
+        let outputs = AVAudioSession.sharedInstance().currentRoute.outputs
+        guard !outputs.isEmpty else { return "none" }
+        return outputs.map { $0.portType.rawValue }.joined(separator: "+")
+    }
+
+    private static func describe(_ reason: AVAudioSession.RouteChangeReason) -> String {
+        switch reason {
+        case .unknown: return "unknown"
+        case .newDeviceAvailable: return "newDeviceAvailable"
+        case .oldDeviceUnavailable: return "oldDeviceUnavailable"
+        case .categoryChange: return "categoryChange"
+        case .override: return "override"
+        case .wakeFromSleep: return "wakeFromSleep"
+        case .noSuitableRouteForCategory: return "noSuitableRouteForCategory"
+        case .routeConfigurationChange: return "routeConfigurationChange"
+        @unknown default: return "raw=\(reason.rawValue)"
         }
     }
 }
@@ -182,7 +217,9 @@ private final class EngineBoot: @unchecked Sendable {
     }
 
     func run() {
+        Breadcrumbs.mark("EngineBoot.run: activating, engine running=\(engine.isRunning)")
         try? session.setActive(true)
         try? engine.start()
+        Breadcrumbs.mark("EngineBoot.run: done, engine running=\(engine.isRunning)")
     }
 }

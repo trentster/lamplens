@@ -49,6 +49,10 @@ final class Speaker {
         didSet {
             UserDefaults.standard.set(stopAfter.rawValue, forKey: "readAloudStop")
             if stopAfter != oldValue { state.choose(stopAfter, at: Date()) }
+            // The timer's length is on the lock screen's bar, so a new timer is a new publication —
+            // even the same timer chosen again, whose bar starts over from the top.
+            published = nil
+            updateNowPlaying()
         }
     }
 
@@ -120,6 +124,7 @@ final class Speaker {
             return
         }
         chapter = first.chapter
+        updateNowPlaying()
         utterances = first.verses
         next = 0
         speaking = nil
@@ -295,6 +300,7 @@ final class Speaker {
                     break
                 }
                 self.chapter = following.chapter
+                updateNowPlaying()
                 utterances = following.verses
                 next = 0
                 job = makeSamples(utterances[0].text, synth: synth)
@@ -471,13 +477,38 @@ final class Speaker {
 
     // MARK: - The lock screen
 
+    /// What was last published: the chapter, whether it is playing, and the timer's length. Publishing
+    /// new now-playing info restarts iOS's backlight idle timer, so the lock screen is told only when
+    /// one of those changes — the chapter, play or pause, the timer — and never per verse. That is
+    /// Apple's own model: the chapter is the item, the way a song is for Music.
+    private var published: Published?
+
+    private struct Published: Equatable {
+        let chapter: String
+        let playing: Bool
+        let duration: TimeInterval?
+    }
+
+    /// The time the sleep timer has used, for the lock screen's bar; nil when no timer is in force.
+    private var timerElapsed: TimeInterval? {
+        guard let length = stopAfter.seconds else { return nil }
+        return max(0, length - (remaining ?? length))
+    }
+
     private func updateNowPlaying() {
         guard state.phase.isOn, let chapter else {
             NowPlaying.clear()
+            published = nil
             return
         }
+        let chapterName = chapterTitle?(chapter) ?? "Lamplens"
+        let now = Published(
+            chapter: chapterName, playing: state.phase == .reading, duration: stopAfter.seconds)
+        guard now != published else { return }
+        published = now
         NowPlaying.show(
-            title: chapterTitle?(chapter) ?? "Lamplens", verse: speaking, playing: state.phase == .reading)
+            title: chapterName, playing: now.playing, duration: now.duration,
+            elapsed: timerElapsed)
     }
 }
 

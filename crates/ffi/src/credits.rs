@@ -1,10 +1,18 @@
-//! Who made what the app carries, and under what terms — the same list the Mac's About panel
-//! shows, read from `bible_core::credits` so the two can never say different things.
+//! Who made what the app carries, and under what terms. The Mac reads `bible_core::credits`
+//! directly; on the iPhone the list is that one with three differences: the voice note describes an
+//! app that carries it instead of one that downloads it, the fonts say what the app uses them for,
+//! and the Ark row is left out, since the iPhone has no object view.
 //!
 //! The App Store asks for a licence record, and three of these works are CC BY: the credit is not a
 //! courtesy, it is the licence condition.
 
 use bible_core::credits as core_credits;
+
+/// The works the iPhone words differently, named exactly as the core names them.
+const PHONON: &str = "Phonon-31m";
+const INTER: &str = "Inter";
+/// The Mac's object view. The iPhone does not carry it, so it is not on the iPhone's list.
+const ARK: &str = "Ark of the Covenant specs and 3D models";
 
 /// One work the app carries: what it is, who holds it, its licence, and where it came from.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
@@ -17,17 +25,28 @@ pub struct CreditRow {
     pub note: String,
 }
 
+/// The note the iPhone shows for a work, where it differs from the core's. The core's wording is the
+/// Mac's and stays as it is.
+fn iphone_note(work: &str) -> Option<&'static str> {
+    match work {
+        PHONON => Some("The reading voice, built into the app. It runs entirely on your device."),
+        INTER => Some("Verse numbers and chapter labels."),
+        _ => None,
+    }
+}
+
 /// Everything the app carries that someone else made, in the order a reader would look for it.
 #[uniffi::export]
 pub fn credits() -> Vec<CreditRow> {
     core_credits::all()
         .iter()
+        .filter(|c| c.work != ARK)
         .map(|c| CreditRow {
             work: c.work.to_string(),
             holder: c.holder.to_string(),
             licence: c.licence.to_string(),
             url: c.url.to_string(),
-            note: c.note.to_string(),
+            note: iphone_note(c.work).unwrap_or(c.note).to_string(),
         })
         .collect()
 }
@@ -77,5 +96,23 @@ mod tests {
         assert!(sign.contains("Lamplens"));
         assert!(sign.contains("MIT"));
         assert!(ark_credit().contains("CC BY 4.0"));
+    }
+
+    /// The iPhone words three rows its own way: the voice is carried, the fonts say what they dress,
+    /// and the Mac's object view is not here at all.
+    #[test]
+    fn the_iphone_list_is_worded_for_the_iphone() {
+        let rows = credits();
+        assert!(
+            !rows.iter().any(|r| r.work == ARK),
+            "the object view is on the iPhone's list, and the iPhone has no object view"
+        );
+        let phonon = rows.iter().find(|r| r.work == PHONON).expect("the voice is not credited");
+        assert_eq!(phonon.note, "The reading voice, built into the app. It runs entirely on your device.");
+        let inter = rows.iter().find(|r| r.work == INTER).expect("Inter is not credited");
+        assert_eq!(inter.note, "Verse numbers and chapter labels.");
+        // Every other row keeps the core's wording.
+        let literata = rows.iter().find(|r| r.work == "Literata").expect("Literata is not credited");
+        assert_eq!(literata.note, "The scripture text.");
     }
 }

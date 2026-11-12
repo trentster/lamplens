@@ -7,20 +7,35 @@ import MediaPlayer
 enum NowPlaying {
     private static var commandsInstalled = false
 
-    /// "John 3", "Verse 16" and whether it is playing. The chapter is named by the app, so this file
-    /// does not learn how to name one.
-    static func show(title: String, verse: UInt8?, playing: Bool) {
+    /// The lock screen's one item: the chapter, whether it is playing, and, when a sleep timer is
+    /// running, its length and how much of it the reading has used. The chapter is named by the app,
+    /// so this file does not learn how to name one — and it is the item, so nothing here changes as
+    /// verses go by.
+    static func show(title: String, playing: Bool, duration: TimeInterval?, elapsed: TimeInterval?) {
         var info: [String: Any] = [
             MPMediaItemPropertyTitle: title,
             MPMediaItemPropertyArtist: "Lamplens",
             MPNowPlayingInfoPropertyPlaybackRate: playing ? 1.0 : 0.0,
             MPNowPlayingInfoPropertyMediaType: MPNowPlayingInfoMediaType.audio.rawValue,
         ]
-        if let verse {
-            info[MPMediaItemPropertyAlbumTitle] = "Verse \(verse)"
+        // With a timer in force the bar is the timer, and iOS counts it down on its own from these
+        // two numbers and the rate: no update per second, and pausing freezes it, as the app's clock
+        // holds its time while the reading is paused.
+        if let duration {
+            info[MPMediaItemPropertyPlaybackDuration] = duration
+            info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = elapsed ?? 0
         }
+        // Without artwork the lock screen shows a blank grey tile.
+        if let artwork { info[MPMediaItemPropertyArtwork] = artwork }
         MPNowPlayingInfoCenter.default().nowPlayingInfo = info
     }
+
+    /// The app's icon, built once: the lock screen asks for it on every update, and decoding it each
+    /// time would show.
+    private static let artwork: MPMediaItemArtwork? = {
+        guard let image = UIImage(named: "NowPlayingArtwork") else { return nil }
+        return MPMediaItemArtwork(boundsSize: image.size) { _ in image }
+    }()
 
     static func clear() {
         MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
@@ -28,11 +43,22 @@ enum NowPlaying {
 
     /// The lock screen's and headphones' buttons. Registered once for the life of the app: adding
     /// targets again stacked them up, so one headphone tap fired play-then-pause and cancelled itself
-    /// out.
+    /// out. Everything the app cannot do is switched off, or the lock screen offers a rewind and a
+    /// skip that do nothing.
     static func installCommands(for speaker: Speaker) {
         guard !commandsInstalled else { return }
         commandsInstalled = true
         let centre = MPRemoteCommandCenter.shared()
+        for dead in [
+            centre.nextTrackCommand, centre.previousTrackCommand,
+            centre.skipForwardCommand, centre.skipBackwardCommand,
+            centre.seekForwardCommand, centre.seekBackwardCommand,
+            centre.changePlaybackPositionCommand, centre.changePlaybackRateCommand,
+            centre.ratingCommand, centre.likeCommand, centre.dislikeCommand,
+            centre.bookmarkCommand,
+        ] {
+            dead.isEnabled = false
+        }
         centre.playCommand.isEnabled = true
         centre.pauseCommand.isEnabled = true
         centre.togglePlayPauseCommand.isEnabled = true
