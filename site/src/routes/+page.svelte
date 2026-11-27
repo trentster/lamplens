@@ -67,7 +67,7 @@
 			</p>
 			<div class="buy">
 				<AppStoreButton />
-				<span class="free"><strong>Free forever</strong> · iPhone and iPad</span>
+				<span class="free"><strong>Free forever</strong> · iPhone</span>
 			</div>
 			<p class="note">[Apple’s official App Store badge replaces this button]</p>
 		</div>
@@ -109,6 +109,7 @@
 			<div class="points">
 				<p><strong>Fall asleep to it</strong>Set the sleep timer and it reads on into the next chapter, then fades out gently when the time is up.</p>
 				<p><strong>Keep your place</strong>A thin bar in the margin marks the verse being read.</p>
+				<p><strong>From the lock screen</strong>Play, pause, or skip back and ahead a verse at a time from the lock screen or your headphones.</p>
 			</div>
 		</div>
 		<div class="side">
@@ -206,7 +207,7 @@
 	<section id="download" aria-labelledby="get-title" class="closing">
 		<h2 id="get-title">Free forever</h2>
 		<p class="lead center">
-			For iPhone and iPad. No ads, no purchases, no subscription. Ever.
+			For iPhone. No ads, no purchases, no subscription. Ever.
 		</p>
 		<AppStoreButton />
 		<p class="verse">“Freely ye have received, freely give.” Matthew 10:8</p>
