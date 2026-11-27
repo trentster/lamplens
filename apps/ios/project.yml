@@ -71,7 +71,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BIBLE_BUNDLE_ID)
         PRODUCT_NAME: Bible
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
         # The framework's simulator slice is Apple Silicon only (see scripts/build-ios.sh).
@@ -93,7 +93,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(BIBLE_BUNDLE_ID).tests
         GENERATE_INFOPLIST_FILE: YES
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
   BibleUITests:
     type: bundle.ui-testing
@@ -107,7 +107,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: $(BIBLE_BUNDLE_ID).uitests
         GENERATE_INFOPLIST_FILE: YES
         TEST_TARGET_NAME: Bible
-        TARGETED_DEVICE_FAMILY: "1,2"
+        TARGETED_DEVICE_FAMILY: "1"
         EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
 schemes:
   Bible:
