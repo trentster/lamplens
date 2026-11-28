@@ -44,11 +44,11 @@ final class Speaker {
     /// over: Apple restarts the item if it is past its first few seconds.
     private var verseStartedAt: Date?
 
-    var voice: String = UserDefaults.standard.string(forKey: "readAloudVoice") ?? "Spencer" {
+    var voice: String {
         didSet { UserDefaults.standard.set(voice, forKey: "readAloudVoice") }
     }
 
-    var stopAfter: Stop = Stop(rawValue: UserDefaults.standard.string(forKey: "readAloudStop") ?? "") ?? .endOfChapter {
+    var stopAfter: Stop {
         didSet {
             UserDefaults.standard.set(stopAfter.rawValue, forKey: "readAloudStop")
             if stopAfter != oldValue { state.choose(stopAfter, at: Date()) }
@@ -93,15 +93,36 @@ final class Speaker {
         set { UserDefaults.standard.set(newValue, forKey: "readAloudVoiceChosen") }
     }
 
-    /// A UI test that is about the first Listen asks for that state by name, because the answer is
-    /// remembered per device and another test may already have given it.
-    private static func resetChoiceIfAsked() {
-        if ProcessInfo.processInfo.arguments.contains("--first-listen") {
-            UserDefaults.standard.set(false, forKey: "readAloudVoiceChosen")
+    /// A UI test starts from settings it did not inherit. One test's timer choice surviving into the
+    /// next is how "the clock should be running, saw 5 minutes" happened: the title left behind read
+    /// as a stopped clock. Cleared before anything reads them, so the bar opens at a known state.
+    ///
+    /// `--keep-data` opts out (the screenshot harness wants the run it built up), and a test that is
+    /// *about* the first Listen asks for that state by name, because the answer is remembered per
+    /// device and another test may already have given it.
+    private static func resetSettingsIfAsked() {
+        let arguments = ProcessInfo.processInfo.arguments
+        let firstListen = arguments.contains("--first-listen")
+        guard arguments.contains("--uitest"), !arguments.contains("--keep-data") else {
+            if firstListen { UserDefaults.standard.set(false, forKey: "readAloudVoiceChosen") }
+            return
         }
+        for key in ["readAloudVoice", "readAloudStop", "readAloudVoiceChosen"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+        // The one-time voice question is not what these tests are about, so answer it here; the
+        // chooser would otherwise stand between every listening test and the bar.
+        UserDefaults.standard.set(!firstListen, forKey: "readAloudVoiceChosen")
     }
 
-    init() { Self.resetChoiceIfAsked() }
+    init() {
+        // Before the stored settings below are read: their defaults are gone by the time the first
+        // test touches the bar.
+        Self.resetSettingsIfAsked()
+        let defaults = UserDefaults.standard
+        voice = defaults.string(forKey: "readAloudVoice") ?? "Spencer"
+        stopAfter = Stop(rawValue: defaults.string(forKey: "readAloudStop") ?? "") ?? .endOfChapter
+    }
 
     /// The voices offered, with the name a reader should see.
     var offered: [VoiceInfo] { voices() }

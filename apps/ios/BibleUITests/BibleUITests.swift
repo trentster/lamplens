@@ -264,22 +264,41 @@ final class BibleUITests: XCTestCase {
     /// they say. A menu that has landed badly can leave a row out of reach, so one retry is allowed
     /// after closing it again: the tests are about what the choice does, not about a popover's luck.
     private func chooseTimer(_ title: String, file: StaticString = #filePath, line: UInt = #line) {
-        for _ in 0..<2 {
-            let bar = app.buttons["listenTimer"]
-            XCTAssertTrue(bar.waitForExistence(timeout: 10), "no timer on the bar", file: file, line: line)
+        let bar = app.buttons["listenTimer"]
+        XCTAssertTrue(bar.waitForExistence(timeout: 10), "no timer on the bar", file: file, line: line)
+        // A simulated tap on an inline picker inside a menu is not reliable: measured against the
+        // bar it lands on the wrong row, or is swallowed and leaves the menu up, often enough that
+        // trusting one tap makes the timer tests lie. Each attempt is checked against the bar and
+        // repeated, because these tests are about what the choice does, not about a popover's luck.
+        for _ in 0..<5 {
+            let before = clockValue()
             bar.tap()
             let row = app.buttons[title]
-            if row.waitForExistence(timeout: 5) {
-                let reachable = XCTNSPredicateExpectation(
-                    predicate: NSPredicate(format: "isHittable == true"), object: row)
-                if XCTWaiter.wait(for: [reachable], timeout: 3) == .completed {
-                    row.tap()
-                    return
-                }
+            let reachable = XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(
+                    predicate: NSPredicate(format: "isHittable == true"), object: row)],
+                timeout: 4) == .completed
+            if reachable {
+                row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                if waitForTimerToTake(title, was: before, timeout: 3) { return }
             }
             app.typeKey(XCUIKeyboardKey.escape, modifierFlags: [])
         }
-        XCTFail("the timer menu never offered a tappable \(title)", file: file, line: line)
+        XCTFail(
+            "the timer never took '\(title)' in five attempts: the bar shows '\(clockValue())'",
+            file: file, line: line)
+    }
+
+    /// True once the bar shows the choice: the chosen title when no clock runs, or a clock counting
+    /// the new length rather than the old one. The bar's value is the proof the picker applied the
+    /// pick, so the menu's own disappearance is not consulted — probing for the row can match the
+    /// bar's own button instead, and a menu that is still up cannot have changed the value.
+    private func waitForTimerToTake(_ title: String, was before: String, timeout: TimeInterval) -> Bool {
+        let shown = XCTNSPredicateExpectation(
+            predicate: NSPredicate(
+                format: "value == %@ OR (value CONTAINS ':' AND value != %@)", title, before),
+            object: app.buttons["listenTimer"])
+        return XCTWaiter.wait(for: [shown], timeout: timeout) == .completed
     }
 
 
